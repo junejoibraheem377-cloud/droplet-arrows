@@ -63,7 +63,12 @@ function show(id){
   if(id === 'home') renderHome();
   if(id === 'game') setTimeout(resize, 30);
 }
-const diff = l => l < 5 ? 'Easy' : l < 12 ? 'Normal' : 'Hard';
+// har 3 level par difficulty ka naya darja
+const tierOf = l => Math.floor((l - 1) / 3);
+const diff = l => {
+  const t = tierOf(l);
+  return t < 2 ? 'Easy' : t < 4 ? 'Normal' : t < 6 ? 'Hard' : 'Expert';
+};
 const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 1800); };
 
 function renderHome(){
@@ -134,42 +139,57 @@ const D = [[0,-1],[1,0],[0,1],[-1,0]];   // up, right, down, left
 let G, lives, hintId = -1, cs = 30;
 
 function gen(level){
-  const W = Math.min(5 + (level >> 1), 11), H = Math.min(7 + Math.floor(level * .8), 16);
+  const tier = tierOf(level);                          // har 3 level par +1
+  const W = Math.min(5 + tier, 11), H = W;             // 5x5 se 11x11 tak
+  const maxL = Math.min(3 + tier, 14);                 // arrow ki zyada se zyada lambai
+  const minL = Math.min(2 + (tier >> 1), 6);           // arrow ki kam se kam lambai
+  const passes = Math.min(3 + tier, 10);               // khali jagah bharne ke daure
   const occ = Array.from({length:H}, () => Array(W).fill(-1)), sn = [];
   const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
-  const maxL = Math.min(3 + (level >> 2), 9);
-  for(let t = 0; t < W*H*40 && sn.length < W*H; t++){
-    let x = Math.random()*W|0, y = Math.random()*H|0;
-    if(occ[y][x] > -1) continue;
-    const p = [[x,y]], seen = new Set([x+','+y]), L = 2 + (Math.random()*(maxL-1)|0);
-    let dir = Math.random()*4|0;
+
+  function trySnake(sx, sy, one){
+    let x = sx, y = sy;
+    const p = [[x,y]], seen = new Set([x+','+y]);
+    const L = one ? 1 : minL + (Math.random() * (maxL - minL + 1) | 0);
+    let dir = Math.random() * 4 | 0;
     while(p.length < L){
-      const o = [0,1,2,3].sort(() => Math.random()-.5); let ok = 0;
+      const o = [0,1,2,3].sort(() => Math.random() - .5); let ok = 0;
       for(const d of o){
-        const nx = x+D[d][0], ny = y+D[d][1];
+        const nx = x + D[d][0], ny = y + D[d][1];
         if(inb(nx,ny) && occ[ny][nx] < 0 && !seen.has(nx+','+ny)){
           x = nx; y = ny; dir = d; p.push([x,y]); seen.add(x+','+y); ok = 1; break;
         }
       }
       if(!ok) break;
     }
-    if(p.length < 2) continue;
-    let cx = x, cy = y, clear = 1; const ray = [];
+    if(p.length < (one ? 1 : 2)) return null;
+    let cx = x, cy = y; const ray = [];
     for(;;){
       cx += D[dir][0]; cy += D[dir][1];
       if(!inb(cx,cy)) break;
-      if(occ[cy][cx] > -1 || seen.has(cx+','+cy)){ clear = 0; break; }
+      if(occ[cy][cx] > -1 || seen.has(cx+','+cy)) return null;
       ray.push([cx,cy]);
     }
-    if(!clear) continue;
-    p.forEach(([a,b]) => occ[b][a] = sn.length);
     const ext = p.concat(ray);
     let ex = cx - D[dir][0], ey = cy - D[dir][1];
-    if(ray.length === 0){ ex = x; ey = y; }
     for(let i = 0; i <= p.length + 1; i++){ ex += D[dir][0]; ey += D[dir][1]; ext.push([ex,ey]); }
-    sn.push({p, dir, ray, ext, s:0, state:0, t:0});   // state 0 idle, 1 moving, 2 blocked, 3 gone
+    return {p, dir, ray, ext, s:0, state:0, t:0};   // state 0 idle, 1 moving, 2 blocked, 3 gone
   }
-  return {W, H, sn, occ, alive: sn.length, total: sn.length};
+
+  const cells = [];
+  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) cells.push([x,y]);
+  for(let pass = 0; pass < passes; pass++){
+    cells.sort(() => Math.random() - .5);
+    for(const [sx,sy] of cells){
+      if(occ[sy][sx] > -1) continue;
+      for(let tr = 0; tr < 8; tr++){
+        // aakhri daouron mein chhote (1 khane ke) arrow bhi, taake khali jagah na bache
+        const s = trySnake(sx, sy, pass >= passes - 2 && tr >= 4);
+        if(s){ s.p.forEach(([a,b]) => occ[b][a] = sn.length); sn.push(s); break; }
+      }
+    }
+  }
+  return {W, H, sn, occ, tier, alive: sn.length, total: sn.length};
 }
 
 function startLevel(){
@@ -210,11 +230,12 @@ function drawSnake(sn, color, lw){
   ctx.strokeStyle = ctx.fillStyle = color;
   ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath(); P.forEach(([x,y], i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); ctx.stroke();
-  const [hx, hy] = P[P.length-1], [dx, dy] = D[sn.dir], a = cs * .3;
+  // chhota arrowhead
+  const [hx, hy] = P[P.length-1], [dx, dy] = D[sn.dir], a = Math.max(lw * 1.6, cs * .2);
   ctx.beginPath();
   ctx.moveTo(hx + dx*a, hy + dy*a);
-  ctx.lineTo(hx - dx*a*.2 - dy*a*.8, hy - dy*a*.2 + dx*a*.8);
-  ctx.lineTo(hx - dx*a*.2 + dy*a*.8, hy - dy*a*.2 - dx*a*.8);
+  ctx.lineTo(hx - dx*a*.1 - dy*a*.7, hy - dy*a*.1 + dx*a*.7);
+  ctx.lineTo(hx - dx*a*.1 + dy*a*.7, hy - dy*a*.1 - dx*a*.7);
   ctx.closePath(); ctx.fill();
 }
 function draw(){
@@ -228,7 +249,8 @@ function draw(){
       ctx.beginPath(); ctx.arc((x+.5)*cs, (y+.5)*cs, cs*.05, 0, 7); ctx.fill();
     }
   }
-  const lw = Math.max(3, cs * .11);
+  // lakeer ki motai: har 3 level par thodi patli hoti jati hai
+  const lw = Math.max(2, cs * Math.max(.05, .11 - G.tier * .007));
   G.sn.forEach((sn, i) => {
     if(sn.state === 3) return;
     const col = sn.state === 2 ? '#d62828' : i === hintId ? accent : ln;
@@ -296,7 +318,15 @@ function win(){
   setTimeout(() => modal('Level complete! 🎉', [['Next Level', 'a', startLevel], ['Home', 'b', () => show('home')]]), 350);
 }
 
+/* ---------- Welcome (sirf pehli baar) ---------- */
+const TERMS_URL = '';     // yahan apna Terms ka link likho
+const PRIVACY_URL = '';   // yahan apna Privacy Policy ka link likho
+const openLink = (url, name) => url ? window.open(url, '_blank') : toast(name + ' ka link abhi nahi lagaya');
+$('#terms').onclick = () => openLink(TERMS_URL, 'Terms');
+$('#privacy').onclick = () => openLink(PRIVACY_URL, 'Privacy Policy');
+$('#accept').onclick = () => { st.accepted = 1; save(); show('home'); };
+
 /* ---------- Start ---------- */
 applyTheme();
 setTimeout(() => show('loading'), 2000);
-setTimeout(() => show('home'), 4200);
+setTimeout(() => show(st.accepted ? 'home' : 'welcome'), 4200);
