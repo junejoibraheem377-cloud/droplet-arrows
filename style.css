@@ -71,3 +71,14 @@ canvas{touch-action:manipulation}
 .mb.a{background:#c3763a;color:#fff}.mb.b{background:#f6dcc3;color:#c3763a}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#000c;color:#fff;padding:10px 18px;border-radius:20px;opacity:0;transition:.3s;pointer-events:none;z-index:30;max-width:85%;text-align:center}
 #toast.on{opacity:1}
+
+/* welcome */
+#welcome{align-items:center;justify-content:center;text-align:center;gap:14px}
+.wt{font-size:34px;color:var(--ln);line-height:1.2}
+.demo{position:relative;width:240px;height:190px}
+.finger{position:absolute;left:100px;top:96px;font-size:48px;animation:tap 1.2s infinite}
+@keyframes tap{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+.wp{font-size:17px;color:#9a8468;max-width:300px}
+.wl{font-size:18px;color:#a38868;max-width:320px;line-height:1.4}
+.wl a{color:#c3763a;text-decoration:underline;cursor:pointer}
+.wbtn{width:100%;max-width:340px;background:#c3763a;color:#fff;border-radius:16px;padding:18px;font-size:26px;font-weight:800;margin-top:18px}
