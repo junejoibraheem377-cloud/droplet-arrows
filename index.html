@@ -23,3 +23,56 @@
     <circle cx="22" cy="44" r="5" fill="#fff"/><circle cx="38" cy="44" r="5" fill="#fff"/>
     <circle cx="22" cy="45" r="2.4" fill="#123"/><circle cx="38" cy="45" r="2.4" fill="#123"/>
     <path d="M24 54q6 5 12 0" stroke="#123" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>
+</section>
+
+<!-- 3. Home -->
+<section id="home" class="screen">
+  <div class="top"><div class="pill">💧 <span id="drops">0</span></div><button class="ib" id="homeSet">⚙</button></div>
+  <div class="cards">
+    <div class="card c1"><small>Daily Challenge</small><b id="date"></b><div class="lock" id="l1"></div></div>
+    <div class="card c2"><small>Event</small><b>Water Battle</b><div class="lock" id="l2"></div></div>
+  </div>
+  <h1 class="title">Droplet Arrows</h1>
+  <div class="strip" id="strip"></div>
+  <button class="play" id="play"><b id="dif"></b><small id="lv"></small></button>
+</section>
+
+<!-- 4. Game -->
+<section id="game" class="screen">
+  <div class="gtop">
+    <button class="ib" id="back">←</button>
+    <div class="gt"><b id="gl"></b><span id="gd"></span></div>
+    <div><button class="ib" id="pal">🎨</button><button class="ib" id="gset">⚙</button></div>
+  </div>
+  <div class="gbar">
+    <div id="lives"></div>
+    <div class="prog"><i id="pf"></i><em id="star">★</em></div>
+    <span id="pp">0%</span>
+    <button class="ib" id="hint">💡</button>
+  </div>
+  <div id="cv"><canvas id="c"></canvas></div>
+  <div id="pm" class="pm"></div>
+</section>
+
+<!-- 5. Settings -->
+<section id="settings" class="screen">
+  <div class="gtop"><button class="ib" id="sback">←</button><b class="stitle">Settings</b></div>
+  <div class="box" id="tg"></div>
+  <div class="box"><div class="row" data-t="Progress saving is coming soon">👤 Save Your Progress <i>›</i></div></div>
+  <div class="box">
+    <div class="row" data-t="Thanks for rating!">👍 Rate Us <i>›</i></div>
+    <div class="row" data-t="Feedback: your-email@gmail.com">💬 Feedback <i>›</i></div>
+  </div>
+  <div class="box">
+    <div class="row" data-t="Add your Privacy Policy link">📄 Privacy Policy <i>›</i></div>
+    <div class="row" data-t="Add your Terms link">📝 Terms of Service <i>›</i></div>
+  </div>
+</section>
+
+<div id="modal"><div class="mbox"><p id="mt"></p><div id="mb"></div></div></div>
+<div id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
