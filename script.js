@@ -330,3 +330,123 @@ $('#accept').onclick = () => { st.accepted = 1; save(); show('home'); };
 applyTheme();
 setTimeout(() => show('loading'), 2000);
 setTimeout(() => show(st.accepted ? 'home' : 'welcome'), 4200);
+
+/* ===== NAYA LEVEL SYSTEM (sab se neeche paste karo) ===== */
+const FIXED = [4, 8, 12, 16, 20];          // pehle 5 levels mein arrows ki tadaad
+const ANAMES = ['Fish', 'Cat', 'Turtle', 'Bird', 'Rabbit'];
+// janwar ki shakal: ['e',cx,cy,rx,ry,jodo(1)/hatao(0)] ya ['t',x1,y1,x2,y2,x3,y3,jodo/hatao]
+const ANIMALS = [
+  [['e',.45,.5,.38,.25,1],['t',.78,.5,.99,.22,.99,.78,1],['e',.28,.44,.06,.06,0]],
+  [['e',.5,.6,.34,.3,1],['t',.17,.35,.2,.05,.43,.3,1],['t',.83,.35,.8,.05,.57,.3,1],['e',.38,.56,.05,.06,0],['e',.62,.56,.05,.06,0]],
+  [['e',.5,.52,.31,.26,1],['e',.88,.5,.1,.1,1],['e',.28,.82,.08,.09,1],['e',.72,.82,.08,.09,1],['e',.28,.22,.08,.09,1],['e',.72,.22,.08,.09,1],['t',.2,.5,.04,.42,.04,.58,1]],
+  [['e',.5,.58,.3,.24,1],['e',.76,.34,.14,.14,1],['t',.88,.31,1,.37,.88,.43,1],['t',.24,.52,.02,.3,.02,.66,1],['e',.8,.31,.035,.035,0]],
+  [['e',.5,.72,.27,.25,1],['e',.5,.4,.19,.17,1],['e',.4,.14,.06,.16,1],['e',.6,.14,.06,.16,1],['e',.44,.38,.035,.04,0],['e',.56,.38,.035,.04,0]]
+];
+function inPrim(q, u, v){
+  if(q[0] === 'e') return ((u - q[1]) / q[3]) ** 2 + ((v - q[2]) / q[4]) ** 2 <= 1;
+  const [, x1, y1, x2, y2, x3, y3] = q;
+  const s = (ax, ay, bx, by) => (u - bx) * (ay - by) - (ax - bx) * (v - by);
+  const d1 = s(x1,y1,x2,y2), d2 = s(x2,y2,x3,y3), d3 = s(x3,y3,x1,y1);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+}
+function animalMask(k, W, H){
+  const A = ANIMALS[k % ANIMALS.length];
+  return Array.from({length:H}, (_, y) => Array.from({length:W}, (_, x) => {
+    const u = (x + .5) / W, v = (y + .5) / H; let on = false;
+    for(const q of A){ if(inPrim(q, u, v)) on = !!(q[0] === 'e' ? q[5] : q[7]); }
+    return on;
+  }));
+}
+
+function gen(level){
+  const tier = tierOf(level);
+  let W, H, mask = null, target = 0, name = '', minL, maxL, passes = 0;
+  if(level <= 5){                                   // pehle 5 levels: tay shuda arrows
+    target = FIXED[level - 1]; W = H = 4 + level; minL = 3; maxL = 4 + level;
+  } else {
+    const k = level - 6, idx = (k / 3) | 0;
+    if(k % 3 === 2){                                // har 3rd level: janwar ki shakal
+      W = H = Math.min(12 + idx * 2, 20);
+      mask = animalMask(idx, W, H); name = ANAMES[idx % ANAMES.length];
+    } else {                                        // normal ghana level
+      W = Math.min(8 + (k >> 1), 18); H = Math.min(10 + (k >> 1), 22);
+    }
+    minL = Math.min(3 + (k >> 2), 7); maxL = Math.min(5 + (k >> 1), 16);
+    passes = Math.min(5 + (k >> 1), 12);
+  }
+  const occ = Array.from({length:H}, () => Array(W).fill(-1));
+  const rayMark = Array.from({length:H}, () => Array(W).fill(0)), sn = [];
+  const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
+  const okc = (x,y) => inb(x,y) && occ[y][x] < 0 && (!mask || mask[y][x]);
+
+  function trySnake(sx, sy, one, soft){
+    let x = sx, y = sy;
+    const p = [[x,y]], seen = new Set([x+','+y]);
+    const L = one ? 1 : minL + (Math.random() * (maxL - minL + 1) | 0);
+    let dir = Math.random() * 4 | 0;
+    while(p.length < L){
+      const o = [0,1,2,3].sort(() => Math.random() - .5); let ok = 0;
+      for(const d of o){
+        const nx = x + D[d][0], ny = y + D[d][1];
+        if(okc(nx,ny) && !seen.has(nx+','+ny)){
+          x = nx; y = ny; dir = d; p.push([x,y]); seen.add(x+','+y); ok = 1; break;
+        }
+      }
+      if(!ok) break;
+    }
+    if(p.length < (one ? 1 : 2)) return null;
+    let cx = x, cy = y; const ray = [];
+    for(;;){
+      cx += D[dir][0]; cy += D[dir][1];
+      if(!inb(cx,cy)) break;
+      if(occ[cy][cx] > -1 || seen.has(cx+','+cy)) return null;
+      ray.push([cx,cy]);
+    }
+    // jo arrow kisi doosre arrow ka raasta roke usay tarjeeh (game mushkil hoti hai)
+    if(!p.some(([a,b]) => rayMark[b][a] > 0) && Math.random() > soft) return null;
+    const ext = p.concat(ray);
+    let ex = cx - D[dir][0], ey = cy - D[dir][1];
+    for(let i = 0; i <= p.length + 1; i++){ ex += D[dir][0]; ey += D[dir][1]; ext.push([ex,ey]); }
+    return {p, dir, ray, ext, s:0, state:0, t:0};
+  }
+  const place = s => {
+    s.p.forEach(([a,b]) => occ[b][a] = sn.length);
+    s.ray.forEach(([a,b]) => rayMark[b][a]++);
+    sn.push(s);
+  };
+
+  if(target){
+    for(let t = 0; t < 9000 && sn.length < target; t++){
+      const sx = Math.random() * W | 0, sy = Math.random() * H | 0;
+      if(!okc(sx,sy)) continue;
+      const s = trySnake(sx, sy, false, t < 4000 ? .2 : 1);
+      if(s) place(s);
+    }
+  } else {
+    const cells = [];
+    for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(!mask || mask[y][x]) cells.push([x,y]);
+    for(let pass = 0; pass < passes; pass++){
+      cells.sort(() => Math.random() - .5);
+      for(const [sx,sy] of cells){
+        if(!okc(sx,sy)) continue;
+        for(let tr = 0; tr < 8; tr++){
+          const last = pass >= passes - 2;
+          const s = trySnake(sx, sy, last && tr >= 4, last ? 1 : .15);
+          if(s){ place(s); break; }
+        }
+      }
+    }
+  }
+  return {W, H, sn, occ, tier, name, alive: sn.length, total: sn.length};
+}
+
+function startLevel(){
+  G = gen(st.level); lives = 3; hintId = -1;
+  $('#gl').textContent = 'Level ' + st.level;
+  $('#gd').textContent = diff(st.level) + (G.name ? ' · ' + G.name : '');
+  show('game'); updateHUD();
+}
+
+// TEST KE LIYE: link ke aakhir mein ?level=8 likho to seedha wahi level khulega
+// (Play Store par bhejne se pehle ye 3 lines delete kar dena)
+{ const j = +new URLSearchParams(location.search).get('level'); if(j > 0){ st.level = j; save(); } }
