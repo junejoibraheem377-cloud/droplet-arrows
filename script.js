@@ -197,7 +197,7 @@ function draw(){
     const col = sn.state === 2 ? '#d62828' : i === hintId ? accent : ln;
     drawSnake(sn, col, i === hintId ? lw * 1.5 : lw);
   });
-  // janwar ki shakal peeche halke rang se
+  // shakal peeche halke rang se
   if(G.mask){
     ctx.save();
     ctx.globalCompositeOperation = 'destination-over';
@@ -277,29 +277,44 @@ $('#terms').onclick = () => openLink(TERMS_URL, 'Terms');
 $('#privacy').onclick = () => openLink(PRIVACY_URL, 'Privacy Policy');
 $('#accept').onclick = () => { st.accepted = 1; save(); show('home'); };
 
-/* ===== NAYA LEVEL SYSTEM (v2) ===== */
+/* ===== NAYA LEVEL SYSTEM (v3) ===== */
 const FIXED = [4, 8, 12, 16, 20];            // level 1-5 mein arrows ki tadaad
-const ANAMES = ['Fish', 'Cat', 'Turtle', 'Bird', 'Rabbit'];
-// janwar ki shakal: ['e',cx,cy,rx,ry,jodo(1)/hatao(0)] ya ['t',x1,y1,x2,y2,x3,y3,jodo/hatao]
-const ANIMALS = [
-  [['e',.45,.5,.38,.25,1],['t',.78,.5,.99,.22,.99,.78,1],['e',.28,.44,.06,.06,0]],
-  [['e',.5,.6,.34,.3,1],['t',.17,.35,.2,.05,.43,.3,1],['t',.83,.35,.8,.05,.57,.3,1],['e',.38,.56,.05,.06,0],['e',.62,.56,.05,.06,0]],
-  [['e',.5,.52,.31,.26,1],['e',.88,.5,.1,.1,1],['e',.28,.82,.08,.09,1],['e',.72,.82,.08,.09,1],['e',.28,.22,.08,.09,1],['e',.72,.22,.08,.09,1],['t',.2,.5,.04,.42,.04,.58,1]],
-  [['e',.5,.58,.3,.24,1],['e',.76,.34,.14,.14,1],['t',.88,.31,1,.37,.88,.43,1],['t',.24,.52,.02,.3,.02,.66,1],['e',.8,.31,.035,.035,0]],
-  [['e',.5,.72,.27,.25,1],['e',.5,.4,.19,.17,1],['e',.4,.14,.06,.16,1],['e',.6,.14,.06,.16,1],['e',.44,.38,.035,.04,0],['e',.56,.38,.035,.04,0]]
+// janwar / cheezon ki shakal: ['e',cx,cy,rx,ry,jodo(1)/hatao(0)], ['t',x1,y1,x2,y2,x3,y3,jodo/hatao], ['p',[[x,y],...],jodo/hatao]
+const STAR = Array.from({length:10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? .24 : .48; return [+(.5 + r * Math.cos(a)).toFixed(3), +(.54 + r * Math.sin(a)).toFixed(3)]; });
+const SHAPES = [
+  {n:'Cat', w:18, h:18, p:[['e',.5,.6,.34,.3,1],['t',.17,.35,.2,.05,.43,.3,1],['t',.83,.35,.8,.05,.57,.3,1],['e',.38,.56,.05,.06,0],['e',.62,.56,.05,.06,0]]},
+  {n:'Dog', w:18, h:18, p:[['e',.5,.46,.27,.3,1],['e',.2,.5,.1,.24,1],['e',.8,.5,.1,.24,1],['e',.5,.7,.15,.12,1],['e',.4,.4,.04,.05,0],['e',.6,.4,.04,.05,0],['e',.5,.64,.05,.035,0]]},
+  {n:'Butterfly', w:20, h:16, p:[['e',.26,.33,.2,.27,1],['e',.74,.33,.2,.27,1],['e',.29,.72,.16,.21,1],['e',.71,.72,.16,.21,1],['e',.5,.5,.045,.38,1]]},
+  {n:'Fish', w:20, h:14, p:[['e',.45,.5,.38,.3,1],['t',.78,.5,.99,.18,.99,.82,1],['e',.27,.43,.05,.07,0]]},
+  {n:'Glasses', w:22, h:12, p:[['e',.27,.5,.23,.44,1],['e',.27,.5,.14,.29,0],['e',.73,.5,.23,.44,1],['e',.73,.5,.14,.29,0],['e',.5,.36,.06,.08,1],['e',.025,.36,.03,.14,1],['e',.975,.36,.03,.14,1]]},
+  {n:'Rabbit', w:18, h:20, p:[['e',.5,.72,.27,.25,1],['e',.5,.4,.19,.17,1],['e',.4,.14,.06,.16,1],['e',.6,.14,.06,.16,1],['e',.44,.38,.035,.04,0],['e',.56,.38,.035,.04,0]]},
+  {n:'Fan', w:20, h:20, p:[['e',.5,.2,.11,.2,1],['e',.5,.8,.11,.2,1],['e',.2,.5,.2,.11,1],['e',.8,.5,.2,.11,1],['e',.5,.5,.12,.12,1],['e',.5,.5,.04,.04,0]]},
+  {n:'Turtle', w:20, h:18, p:[['e',.5,.52,.31,.26,1],['e',.88,.5,.1,.1,1],['e',.28,.82,.08,.09,1],['e',.72,.82,.08,.09,1],['e',.28,.22,.08,.09,1],['e',.72,.22,.08,.09,1],['t',.2,.5,.04,.42,.04,.58,1]]},
+  {n:'Heart', w:18, h:17, p:[['e',.32,.33,.22,.24,1],['e',.68,.33,.22,.24,1],['t',.11,.42,.89,.42,.5,.93,1]]},
+  {n:'Bird', w:20, h:18, p:[['e',.5,.58,.3,.24,1],['e',.76,.34,.14,.14,1],['t',.88,.31,1,.37,.88,.43,1],['t',.24,.52,.02,.3,.02,.66,1],['e',.8,.31,.035,.035,0]]},
+  {n:'Star', w:22, h:22, p:[['p',STAR,1]]},
+  {n:'Umbrella', w:20, h:20, p:[['e',.5,.45,.46,.4,1],['p',[[0,.45],[1,.45],[1,1],[0,1]],0],['p',[[.47,.44],[.53,.44],[.53,.85],[.47,.85]],1],['e',.42,.86,.07,.06,1],['e',.42,.86,.03,.025,0]]},
+  {n:'Moon', w:18, h:18, p:[['e',.5,.5,.44,.44,1],['e',.68,.46,.34,.36,0]]},
+  {n:'Tree', w:18, h:20, p:[['e',.5,.36,.34,.32,1],['p',[[.44,.6],[.56,.6],[.58,.95],[.42,.95]],1]]},
+  {n:'Flower', w:20, h:20, p:[['e',.5,.18,.13,.17,1],['e',.5,.82,.13,.17,1],['e',.18,.5,.17,.13,1],['e',.82,.5,.17,.13,1],['e',.28,.28,.13,.13,1],['e',.72,.28,.13,.13,1],['e',.28,.72,.13,.13,1],['e',.72,.72,.13,.13,1],['e',.5,.5,.15,.15,1]]}
 ];
+function ptIn(poly, u, v){
+  let c = false;
+  for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+    const [xi,yi] = poly[i], [xj,yj] = poly[j];
+    if(((yi > v) !== (yj > v)) && (u < (xj - xi) * (v - yi) / (yj - yi) + xi)) c = !c;
+  }
+  return c;
+}
 function inPrim(q, u, v){
   if(q[0] === 'e') return ((u - q[1]) / q[3]) ** 2 + ((v - q[2]) / q[4]) ** 2 <= 1;
-  const [, x1, y1, x2, y2, x3, y3] = q;
-  const s = (ax, ay, bx, by) => (u - bx) * (ay - by) - (ax - bx) * (v - by);
-  const d1 = s(x1,y1,x2,y2), d2 = s(x2,y2,x3,y3), d3 = s(x3,y3,x1,y1);
-  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+  if(q[0] === 'p') return ptIn(q[1], u, v);
+  return ptIn([[q[1],q[2]],[q[3],q[4]],[q[5],q[6]]], u, v);
 }
-function animalMask(k, W, H){
-  const A = ANIMALS[k % ANIMALS.length];
+function shapeMask(sh, W, H){
   return Array.from({length:H}, (_, y) => Array.from({length:W}, (_, x) => {
     const u = (x + .5) / W, v = (y + .5) / H; let on = false;
-    for(const q of A){ if(inPrim(q, u, v)) on = !!(q[0] === 'e' ? q[5] : q[7]); }
+    for(const q of sh.p){ if(inPrim(q, u, v)) on = !!(q[0] === 'e' ? q[5] : q[0] === 't' ? q[7] : q[2]); }
     return on;
   }));
 }
@@ -355,7 +370,7 @@ function buildFixed(W, H, target){
 }
 
 /* --- ghana maze: poora bharo, phir "peel" se raaste tay karo (hamesha solvable) --- */
-function buildDense(W, H, mask, minL, maxL){
+function buildDense(W, H, mask, minL, maxL, chain){
   const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
   const used = Array.from({length:H}, () => Array(W).fill(false));
   const okm = (x,y) => inb(x,y) && !used[y][x] && (!mask || mask[y][x]);
@@ -388,6 +403,7 @@ function buildDense(W, H, mask, minL, maxL){
     for(;;){ cx += D[d][0]; cy += D[d][1]; if(!inb(cx,cy)) break; if(occ[cy][cx] > -1) return null; r.push([cx,cy]); }
     return r;
   };
+  const pidx = Array.from({length:H}, () => Array(W).fill(-1));   // kis number par arrow nikla
   const out = []; let guard = 0;
   while(alive.size && guard++ < 6000){
     const cands = [];
@@ -397,7 +413,11 @@ function buildDense(W, H, mask, minL, maxL){
         const h = q[q.length-1], pr = q[q.length-2];
         const d = D.findIndex(v => v[0] === h[0] - pr[0] && v[1] === h[1] - pr[1]);
         const ray = rayOf(h[0], h[1], d);
-        if(ray) cands.push({id, q, d, ray});
+        if(ray){
+          let dep = -1, cnt = 0;                      // ye arrow kitne purane nikle arrows par tika hai
+          for(const [x,y] of ray) if(pidx[y][x] > -1){ cnt++; if(pidx[y][x] > dep) dep = pidx[y][x]; }
+          cands.push({id, q, d, ray, dep, cnt});
+        }
       }
     }
     if(!cands.length){                               // atak gaye: ek arrow ko tod do
@@ -408,8 +428,14 @@ function buildDense(W, H, mask, minL, maxL){
       add(p.slice(0, cut)); add(p.slice(cut));
       continue;
     }
-    const c = cands[Math.random() * cands.length | 0];
-    out.push(c); alive.get(c.id).forEach(([x,y]) => occ[y][x] = -1); alive.delete(c.id);
+    let c;
+    if(Math.random() < chain){                      // zanjeer: wo arrow chuno jo abhi abhi nikle arrow par tika ho
+      cands.sort((a, b) => b.dep - a.dep || b.cnt - a.cnt);
+      const top = cands.filter(v => v.dep === cands[0].dep);
+      c = top[Math.random() * top.length | 0];
+    } else c = cands[Math.random() * cands.length | 0];
+    alive.get(c.id).forEach(([x,y]) => { occ[y][x] = -1; pidx[y][x] = out.length; });
+    out.push(c); alive.delete(c.id);
   }
   const occ2 = Array.from({length:H}, () => Array(W).fill(-1));
   const sn = out.map((c, i) => {
@@ -422,14 +448,32 @@ function buildDense(W, H, mask, minL, maxL){
   return finish(W, H, sn, occ2, mask, '', 0);
 }
 
-// kai board bana kar sab se mushkil (kam se kam shuru mein nikalne wale arrows) chuno
-function bestOf(n, make, target){
+// har qadam par kitne arrows nikal sakte hain, uska ausat (kam = zyada sochna padega)
+function hardness(g){
+  let tot = 0; const runs = 4;
+  for(let r = 0; r < runs; r++){
+    const occ = g.occ.map(x => x.slice()); let left = g.sn.map((s, i) => i), steps = 0, sum = 0;
+    while(left.length){
+      const fr = left.filter(i => g.sn[i].ray.every(([x,y]) => occ[y][x] < 0));
+      if(!fr.length) break;
+      sum += fr.length; steps++;
+      const pick = fr[Math.random() * fr.length | 0];
+      g.sn[pick].p.forEach(([x,y]) => occ[y][x] = -1);
+      left = left.filter(i => i !== pick);
+    }
+    tot += steps ? sum / steps : 99;
+  }
+  return tot / runs;
+}
+// kai board bana kar sab se mushkil chuno
+function bestOf(n, make, target, wFree){
+  const N = target ? n : Math.round(n * 2.5);
   let best = null, bs = 1e9;
-  for(let i = 0; i < n; i++){
+  for(let i = 0; i < N; i++){
     const g = make();
     if(!g.sn.length) continue;
     const miss = target ? Math.abs(g.sn.length - target) : 0;
-    const score = miss * 1000 + freeCount(g.sn, g.occ);
+    const score = miss * 1000 + (N > 1 ? hardness(g) + (wFree || .4) * freeCount(g.sn, g.occ) : 0);
     if(score < bs){ bs = score; best = g; }
   }
   return best;
@@ -438,18 +482,20 @@ function bestOf(n, make, target){
 function gen(level){
   const tier = tierOf(level);
   let g;
-  if(level <= 5){
+  if(level <= 5){                                      // level 1-5: aasan
     const W = 4 + level;
     g = bestOf(60, () => buildFixed(W, W, FIXED[level-1]), FIXED[level-1]);
   } else {
-    const k = level - 6, idx = (k / 3) | 0;
-    if(k % 3 === 2){                                  // har 3rd level: janwar ki shakal
-      const S = Math.min(16 + idx, 20);
-      g = bestOf(10, () => buildDense(S, S, animalMask(idx, S, S), 3, 6));
-      g.name = ANAMES[idx % ANAMES.length];
+    const chain = Math.min(1, (level - 5) / 3);       // level 6 se zanjeer shuru, level 8 tak poori
+    if(level >= 11 && (level - 11) % 3 === 0){        // level 10 ke baad har 3rd level: shakal
+      const idx = (level - 11) / 3, sh = SHAPES[idx % SHAPES.length], f = 1 + Math.min(idx, 8) * .025;
+      const W = Math.round(sh.w * f), H = Math.round(sh.h * f);
+      g = bestOf(16, () => buildDense(W, H, shapeMask(sh, W, H), 3, Math.min(6 + (idx >> 1), 8), chain), 0, 1.2);
+      g.name = sh.n;
     } else {
-      const W = Math.min(8 + k, 18), H = Math.min(11 + Math.floor(k * 1.3), 26);
-      g = bestOf(12, () => buildDense(W, H, null, 3, Math.min(5 + (k >> 2), 8)));
+      const k = level - 6;
+      const W = Math.min(10 + k, 18), H = Math.min(14 + Math.floor(k * 1.3), 26);
+      g = bestOf(16, () => buildDense(W, H, null, Math.min(3 + (k >> 2), 5), Math.min(6 + (k >> 1), 10), chain));
     }
   }
   g.tier = tier;
