@@ -1,5 +1,5 @@
 const $ = s => document.querySelector(s);
-const st = Object.assign({level:1,drops:0,sound:1,vib:0,music:1,guide:0,theme:0},
+const st = Object.assign({level:1,drops:0,sound:1,vib:0,music:0,guide:0,theme:0},
   JSON.parse(localStorage.getItem('droplet-arrows') || '{}'));
 const save = () => localStorage.setItem('droplet-arrows', JSON.stringify(st));
 
@@ -35,22 +35,17 @@ function beep(f, d, v, type){
   o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + d);
 }
 const vib = ms => { if(st.vib && navigator.vibrate) navigator.vibrate(ms); };
-const tick = () => { beep(720, .05, .12); vib(15); };   // halki "tick"
-const bad  = () => { beep(150, .25, .22, 'triangle'); vib(80); };
-let mt;
-function music(){
-  clearInterval(mt);
-  if(!st.music) return;
-  const n = [261,294,329,392,440];
-  mt = setInterval(() => {
-    const a = AC(), o = a.createOscillator(), g = a.createGain();
-    o.frequency.value = n[Math.random()*5|0];
-    g.gain.setValueAtTime(.0001, a.currentTime);
-    g.gain.linearRampToValueAtTime(.03, a.currentTime + .5);
-    g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + 2.2);
-    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 2.3);
-  }, 2200);
+function click(){                                   // asli "tik" jaisa chhota click
+  if(!st.sound) return;
+  const a = AC(), n = Math.floor(a.sampleRate * .03), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0);
+  for(let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4);
+  const src = a.createBufferSource(), g = a.createGain(), f = a.createBiquadFilter();
+  f.type = 'bandpass'; f.frequency.value = 1800; g.gain.value = .6;
+  src.buffer = b; src.connect(f); f.connect(g); g.connect(a.destination); src.start();
 }
+const tick = () => { click(); vib(15); };
+const bad  = () => { beep(220, .1, .12); vib(60); };   // halki "dhup", bhaari awaaz nahi
+function music(){}   // abhi band hai (nakli music se bhinbhinahat aati thi). Baad mein asli music file lagayenge
 addEventListener('pointerdown', () => { AC().resume(); music(); }, {once:true});
 
 /* ---------- Screens ---------- */
@@ -134,68 +129,14 @@ if(capApp) capApp.addListener('backButton', onBack);
 history.pushState(null, '');
 addEventListener('popstate', () => { history.pushState(null, ''); onBack(); });
 
-/* ---------- Level generation (hamesha solvable) ---------- */
+/* ---------- Game state ---------- */
 const D = [[0,-1],[1,0],[0,1],[-1,0]];   // up, right, down, left
 let G, lives, hintId = -1, cs = 30;
-
-function gen(level){
-  const tier = tierOf(level);                          // har 3 level par +1
-  const W = Math.min(5 + tier, 11), H = W;             // 5x5 se 11x11 tak
-  const maxL = Math.min(3 + tier, 14);                 // arrow ki zyada se zyada lambai
-  const minL = Math.min(2 + (tier >> 1), 6);           // arrow ki kam se kam lambai
-  const passes = Math.min(3 + tier, 10);               // khali jagah bharne ke daure
-  const occ = Array.from({length:H}, () => Array(W).fill(-1)), sn = [];
-  const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
-
-  function trySnake(sx, sy, one){
-    let x = sx, y = sy;
-    const p = [[x,y]], seen = new Set([x+','+y]);
-    const L = one ? 1 : minL + (Math.random() * (maxL - minL + 1) | 0);
-    let dir = Math.random() * 4 | 0;
-    while(p.length < L){
-      const o = [0,1,2,3].sort(() => Math.random() - .5); let ok = 0;
-      for(const d of o){
-        const nx = x + D[d][0], ny = y + D[d][1];
-        if(inb(nx,ny) && occ[ny][nx] < 0 && !seen.has(nx+','+ny)){
-          x = nx; y = ny; dir = d; p.push([x,y]); seen.add(x+','+y); ok = 1; break;
-        }
-      }
-      if(!ok) break;
-    }
-    if(p.length < (one ? 1 : 2)) return null;
-    let cx = x, cy = y; const ray = [];
-    for(;;){
-      cx += D[dir][0]; cy += D[dir][1];
-      if(!inb(cx,cy)) break;
-      if(occ[cy][cx] > -1 || seen.has(cx+','+cy)) return null;
-      ray.push([cx,cy]);
-    }
-    const ext = p.concat(ray);
-    let ex = cx - D[dir][0], ey = cy - D[dir][1];
-    for(let i = 0; i <= p.length + 1; i++){ ex += D[dir][0]; ey += D[dir][1]; ext.push([ex,ey]); }
-    return {p, dir, ray, ext, s:0, state:0, t:0};   // state 0 idle, 1 moving, 2 blocked, 3 gone
-  }
-
-  const cells = [];
-  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) cells.push([x,y]);
-  for(let pass = 0; pass < passes; pass++){
-    cells.sort(() => Math.random() - .5);
-    for(const [sx,sy] of cells){
-      if(occ[sy][sx] > -1) continue;
-      for(let tr = 0; tr < 8; tr++){
-        // aakhri daouron mein chhote (1 khane ke) arrow bhi, taake khali jagah na bache
-        const s = trySnake(sx, sy, pass >= passes - 2 && tr >= 4);
-        if(s){ s.p.forEach(([a,b]) => occ[b][a] = sn.length); sn.push(s); break; }
-      }
-    }
-  }
-  return {W, H, sn, occ, tier, alive: sn.length, total: sn.length};
-}
 
 function startLevel(){
   G = gen(st.level); lives = 3; hintId = -1;
   $('#gl').textContent = 'Level ' + st.level;
-  $('#gd').textContent = diff(st.level);
+  $('#gd').textContent = diff(st.level) + (G.name ? ' · ' + G.name : '');
   show('game'); updateHUD();
 }
 function updateHUD(){
@@ -256,6 +197,16 @@ function draw(){
     const col = sn.state === 2 ? '#d62828' : i === hintId ? accent : ln;
     drawSnake(sn, col, i === hintId ? lw * 1.5 : lw);
   });
+  // janwar ki shakal peeche halke rang se
+  if(G.mask){
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.globalAlpha = .18; ctx.fillStyle = accent;
+    for(let y = 0; y < G.H; y++) for(let x = 0; x < G.W; x++){
+      if(G.mask[y][x]) ctx.fillRect(x * cs, y * cs, cs + .5, cs + .5);
+    }
+    ctx.restore();
+  }
 }
 
 /* ---------- Gameplay ---------- */
@@ -326,13 +277,8 @@ $('#terms').onclick = () => openLink(TERMS_URL, 'Terms');
 $('#privacy').onclick = () => openLink(PRIVACY_URL, 'Privacy Policy');
 $('#accept').onclick = () => { st.accepted = 1; save(); show('home'); };
 
-/* ---------- Start ---------- */
-applyTheme();
-setTimeout(() => show('loading'), 2000);
-setTimeout(() => show(st.accepted ? 'home' : 'welcome'), 4200);
-
-/* ===== NAYA LEVEL SYSTEM (sab se neeche paste karo) ===== */
-const FIXED = [4, 8, 12, 16, 20];          // pehle 5 levels mein arrows ki tadaad
+/* ===== NAYA LEVEL SYSTEM (v2) ===== */
+const FIXED = [4, 8, 12, 16, 20];            // level 1-5 mein arrows ki tadaad
 const ANAMES = ['Fish', 'Cat', 'Turtle', 'Bird', 'Rabbit'];
 // janwar ki shakal: ['e',cx,cy,rx,ry,jodo(1)/hatao(0)] ya ['t',x1,y1,x2,y2,x3,y3,jodo/hatao]
 const ANIMALS = [
@@ -357,44 +303,31 @@ function animalMask(k, W, H){
     return on;
   }));
 }
+const freeCount = (sn, occ) => sn.filter(s => s.ray.every(([x,y]) => occ[y][x] < 0)).length;
+function finish(W, H, sn, occ, mask, name, tier){
+  return {W, H, sn, occ, mask, name, tier, alive: sn.length, total: sn.length};
+}
 
-function gen(level){
-  const tier = tierOf(level);
-  let W, H, mask = null, target = 0, name = '', minL, maxL, passes = 0;
-  if(level <= 5){                                   // pehle 5 levels: tay shuda arrows
-    target = FIXED[level - 1]; W = H = 4 + level; minL = 3; maxL = 4 + level;
-  } else {
-    const k = level - 6, idx = (k / 3) | 0;
-    if(k % 3 === 2){                                // har 3rd level: janwar ki shakal
-      W = H = Math.min(12 + idx * 2, 20);
-      mask = animalMask(idx, W, H); name = ANAMES[idx % ANAMES.length];
-    } else {                                        // normal ghana level
-      W = Math.min(8 + (k >> 1), 18); H = Math.min(10 + (k >> 1), 22);
-    }
-    minL = Math.min(3 + (k >> 2), 7); maxL = Math.min(5 + (k >> 1), 16);
-    passes = Math.min(5 + (k >> 1), 12);
-  }
+/* --- pehle 5 levels: tay shuda tadaad --- */
+function buildFixed(W, H, target){
   const occ = Array.from({length:H}, () => Array(W).fill(-1));
   const rayMark = Array.from({length:H}, () => Array(W).fill(0)), sn = [];
   const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
-  const okc = (x,y) => inb(x,y) && occ[y][x] < 0 && (!mask || mask[y][x]);
-
-  function trySnake(sx, sy, one, soft){
+  const okc = (x,y) => inb(x,y) && occ[y][x] < 0;
+  function trySnake(sx, sy, soft){
     let x = sx, y = sy;
     const p = [[x,y]], seen = new Set([x+','+y]);
-    const L = one ? 1 : minL + (Math.random() * (maxL - minL + 1) | 0);
+    const L = 3 + (Math.random() * 2 | 0);
     let dir = Math.random() * 4 | 0;
     while(p.length < L){
       const o = [0,1,2,3].sort(() => Math.random() - .5); let ok = 0;
       for(const d of o){
         const nx = x + D[d][0], ny = y + D[d][1];
-        if(okc(nx,ny) && !seen.has(nx+','+ny)){
-          x = nx; y = ny; dir = d; p.push([x,y]); seen.add(x+','+y); ok = 1; break;
-        }
+        if(okc(nx,ny) && !seen.has(nx+','+ny)){ x = nx; y = ny; dir = d; p.push([x,y]); seen.add(x+','+y); ok = 1; break; }
       }
       if(!ok) break;
     }
-    if(p.length < (one ? 1 : 2)) return null;
+    if(p.length < 2) return null;
     let cx = x, cy = y; const ray = [];
     for(;;){
       cx += D[dir][0]; cy += D[dir][1];
@@ -402,51 +335,132 @@ function gen(level){
       if(occ[cy][cx] > -1 || seen.has(cx+','+cy)) return null;
       ray.push([cx,cy]);
     }
-    // jo arrow kisi doosre arrow ka raasta roke usay tarjeeh (game mushkil hoti hai)
-    if(!p.some(([a,b]) => rayMark[b][a] > 0) && Math.random() > soft) return null;
+    if(sn.length && !p.some(([a,b]) => rayMark[b][a] > 0) && Math.random() > soft) return null;
     const ext = p.concat(ray);
     let ex = cx - D[dir][0], ey = cy - D[dir][1];
     for(let i = 0; i <= p.length + 1; i++){ ex += D[dir][0]; ey += D[dir][1]; ext.push([ex,ey]); }
     return {p, dir, ray, ext, s:0, state:0, t:0};
   }
-  const place = s => {
-    s.p.forEach(([a,b]) => occ[b][a] = sn.length);
-    s.ray.forEach(([a,b]) => rayMark[b][a]++);
-    sn.push(s);
-  };
-
-  if(target){
-    for(let t = 0; t < 9000 && sn.length < target; t++){
-      const sx = Math.random() * W | 0, sy = Math.random() * H | 0;
-      if(!okc(sx,sy)) continue;
-      const s = trySnake(sx, sy, false, t < 4000 ? .2 : 1);
-      if(s) place(s);
-    }
-  } else {
-    const cells = [];
-    for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(!mask || mask[y][x]) cells.push([x,y]);
-    for(let pass = 0; pass < passes; pass++){
-      cells.sort(() => Math.random() - .5);
-      for(const [sx,sy] of cells){
-        if(!okc(sx,sy)) continue;
-        for(let tr = 0; tr < 8; tr++){
-          const last = pass >= passes - 2;
-          const s = trySnake(sx, sy, last && tr >= 4, last ? 1 : .15);
-          if(s){ place(s); break; }
-        }
-      }
+  for(let t = 0; t < 6000 && sn.length < target; t++){
+    const sx = Math.random() * W | 0, sy = Math.random() * H | 0;
+    if(!okc(sx,sy)) continue;
+    const s = trySnake(sx, sy, t < 3000 ? .1 : .5);
+    if(s){
+      s.p.forEach(([a,b]) => occ[b][a] = sn.length);
+      s.ray.forEach(([a,b]) => rayMark[b][a]++);
+      sn.push(s);
     }
   }
-  return {W, H, sn, occ, tier, name, alive: sn.length, total: sn.length};
+  return finish(W, H, sn, occ, null, '', 0);
 }
 
-function startLevel(){
-  G = gen(st.level); lives = 3; hintId = -1;
-  $('#gl').textContent = 'Level ' + st.level;
-  $('#gd').textContent = diff(st.level) + (G.name ? ' · ' + G.name : '');
-  show('game'); updateHUD();
+/* --- ghana maze: poora bharo, phir "peel" se raaste tay karo (hamesha solvable) --- */
+function buildDense(W, H, mask, minL, maxL){
+  const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
+  const used = Array.from({length:H}, () => Array(W).fill(false));
+  const okm = (x,y) => inb(x,y) && !used[y][x] && (!mask || mask[y][x]);
+  const nb = (x,y) => D.map(d => [x + d[0], y + d[1]]).filter(([a,b]) => okm(a,b));
+  const pieces = [];
+  for(;;){
+    let best = null, bc = 9;
+    for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
+      if(!okm(x,y)) continue;
+      const c = nb(x,y).length + Math.random() * .9;
+      if(c < bc){ bc = c; best = [x,y]; }
+    }
+    if(!best) break;
+    const L = minL + (Math.random() * (maxL - minL + 1) | 0);
+    const p = [best]; used[best[1]][best[0]] = true;
+    while(p.length < L){
+      const [x,y] = p[p.length-1], n = nb(x,y);
+      if(!n.length) break;
+      n.sort((a,b) => nb(a[0],a[1]).length - nb(b[0],b[1]).length + (Math.random() - .5) * 1.6);
+      p.push(n[0]); used[n[0][1]][n[0][0]] = true;
+    }
+    if(p.length >= 2) pieces.push(p);
+  }
+  const occ = Array.from({length:H}, () => Array(W).fill(-1));
+  const alive = new Map(); let nid = 0;
+  const add = p => { const id = nid++; alive.set(id, p); p.forEach(([x,y]) => occ[y][x] = id); };
+  pieces.forEach(add);
+  const rayOf = (x, y, d) => {
+    const r = []; let cx = x, cy = y;
+    for(;;){ cx += D[d][0]; cy += D[d][1]; if(!inb(cx,cy)) break; if(occ[cy][cx] > -1) return null; r.push([cx,cy]); }
+    return r;
+  };
+  const out = []; let guard = 0;
+  while(alive.size && guard++ < 6000){
+    const cands = [];
+    for(const [id,p] of alive){
+      for(const rev of [0,1]){
+        const q = rev ? p.slice().reverse() : p;
+        const h = q[q.length-1], pr = q[q.length-2];
+        const d = D.findIndex(v => v[0] === h[0] - pr[0] && v[1] === h[1] - pr[1]);
+        const ray = rayOf(h[0], h[1], d);
+        if(ray) cands.push({id, q, d, ray});
+      }
+    }
+    if(!cands.length){                               // atak gaye: ek arrow ko tod do
+      const ids = [...alive.keys()], id = ids[Math.random() * ids.length | 0], p = alive.get(id);
+      alive.delete(id); p.forEach(([x,y]) => occ[y][x] = -1);
+      if(p.length < 4) continue;
+      const cut = 2 + (Math.random() * (p.length - 3) | 0);
+      add(p.slice(0, cut)); add(p.slice(cut));
+      continue;
+    }
+    const c = cands[Math.random() * cands.length | 0];
+    out.push(c); alive.get(c.id).forEach(([x,y]) => occ[y][x] = -1); alive.delete(c.id);
+  }
+  const occ2 = Array.from({length:H}, () => Array(W).fill(-1));
+  const sn = out.map((c, i) => {
+    c.q.forEach(([x,y]) => occ2[y][x] = i);
+    const ext = c.q.concat(c.ray), h = ext[ext.length-1];
+    let ex = h[0], ey = h[1];
+    for(let k = 0; k <= c.q.length + 1; k++){ ex += D[c.d][0]; ey += D[c.d][1]; ext.push([ex,ey]); }
+    return {p:c.q, dir:c.d, ray:c.ray, ext, s:0, state:0, t:0};
+  });
+  return finish(W, H, sn, occ2, mask, '', 0);
+}
+
+// kai board bana kar sab se mushkil (kam se kam shuru mein nikalne wale arrows) chuno
+function bestOf(n, make, target){
+  let best = null, bs = 1e9;
+  for(let i = 0; i < n; i++){
+    const g = make();
+    if(!g.sn.length) continue;
+    const miss = target ? Math.abs(g.sn.length - target) : 0;
+    const score = miss * 1000 + freeCount(g.sn, g.occ);
+    if(score < bs){ bs = score; best = g; }
+  }
+  return best;
+}
+
+function gen(level){
+  const tier = tierOf(level);
+  let g;
+  if(level <= 5){
+    const W = 4 + level;
+    g = bestOf(60, () => buildFixed(W, W, FIXED[level-1]), FIXED[level-1]);
+  } else {
+    const k = level - 6, idx = (k / 3) | 0;
+    if(k % 3 === 2){                                  // har 3rd level: janwar ki shakal
+      const S = Math.min(16 + idx, 20);
+      g = bestOf(10, () => buildDense(S, S, animalMask(idx, S, S), 3, 6));
+      g.name = ANAMES[idx % ANAMES.length];
+    } else {
+      const W = Math.min(8 + k, 18), H = Math.min(11 + Math.floor(k * 1.3), 26);
+      g = bestOf(12, () => buildDense(W, H, null, 3, Math.min(5 + (k >> 2), 8)));
+    }
+  }
+  g.tier = tier;
+  return g;
 }
 
 // TEST KE LIYE: link ke aakhir mein ?level=8 likho to seedha wahi level khulega
-// (Play Store par bhejne se pehle ye 3 lines delete kar dena)
+// (Play Store par bhejne se pehle ye line delete kar dena)
 { const j = +new URLSearchParams(location.search).get('level'); if(j > 0){ st.level = j; save(); } }
+
+/* ---------- Start ---------- */
+applyTheme();
+setTimeout(() => show('loading'), 2000);
+setTimeout(() => show(st.accepted ? 'home' : 'welcome'), 4200);
