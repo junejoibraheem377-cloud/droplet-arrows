@@ -82,3 +82,10 @@ canvas{touch-action:manipulation}
 .wl{font-size:18px;color:#a38868;max-width:320px;line-height:1.4}
 .wl a{color:#c3763a;text-decoration:underline;cursor:pointer}
 .wbtn{width:100%;max-width:340px;background:#c3763a;color:#fff;border-radius:16px;padding:18px;font-size:26px;font-weight:800;margin-top:18px}
+
+/* avatar */
+.avatar{margin-right:auto;width:46px;height:46px;border-radius:50%;border:3px solid var(--ac);background:#fff;font-size:26px;display:grid;place-items:center;overflow:hidden;padding:0;line-height:1}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.avopt{background:#fff;border-radius:16px;font-size:34px;padding:10px 0;box-shadow:0 1px 4px #0002}
+
