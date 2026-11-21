@@ -197,7 +197,7 @@ function draw(){
     const col = sn.state === 2 ? '#d62828' : i === hintId ? accent : ln;
     drawSnake(sn, col, i === hintId ? lw * 1.5 : lw);
   });
-  // shakal peeche halke rang se
+  // janwar ki shakal peeche halke rang se
   if(G.mask){
     ctx.save();
     ctx.globalCompositeOperation = 'destination-over';
@@ -270,14 +270,19 @@ function win(){
 }
 
 /* ---------- Welcome (sirf pehli baar) ---------- */
-const TERMS_URL = '';     // yahan apna Terms ka link likho
-const PRIVACY_URL = '';   // yahan apna Privacy Policy ka link likho
-const openLink = (url, name) => url ? window.open(url, '_blank') : toast(name + ' ka link abhi nahi lagaya');
+const SITE = 'https://junejoibraheem377-cloud.github.io/droplet-arrows/';
+const TERMS_URL = SITE + 'terms.html';
+const PRIVACY_URL = SITE + 'privacy.html';
+const openLink = (url, name) => window.open(url, '_blank');
+document.querySelectorAll('#settings .row').forEach(r => {     // Settings ke Privacy / Terms
+  if(r.textContent.includes('Privacy')) r.onclick = () => openLink(PRIVACY_URL);
+  if(r.textContent.includes('Terms')) r.onclick = () => openLink(TERMS_URL);
+});
 $('#terms').onclick = () => openLink(TERMS_URL, 'Terms');
 $('#privacy').onclick = () => openLink(PRIVACY_URL, 'Privacy Policy');
 $('#accept').onclick = () => { st.accepted = 1; save(); show('home'); };
 
-/* ===== NAYA LEVEL SYSTEM (v3) ===== */
+/* ===== NAYA LEVEL SYSTEM (v2) ===== */
 const FIXED = [4, 8, 12, 16, 20];            // level 1-5 mein arrows ki tadaad
 // janwar / cheezon ki shakal: ['e',cx,cy,rx,ry,jodo(1)/hatao(0)], ['t',x1,y1,x2,y2,x3,y3,jodo/hatao], ['p',[[x,y],...],jodo/hatao]
 const STAR = Array.from({length:10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? .24 : .48; return [+(.5 + r * Math.cos(a)).toFixed(3), +(.54 + r * Math.sin(a)).toFixed(3)]; });
@@ -286,7 +291,7 @@ const SHAPES = [
   {n:'Dog', w:18, h:18, p:[['e',.5,.46,.27,.3,1],['e',.2,.5,.1,.24,1],['e',.8,.5,.1,.24,1],['e',.5,.7,.15,.12,1],['e',.4,.4,.04,.05,0],['e',.6,.4,.04,.05,0],['e',.5,.64,.05,.035,0]]},
   {n:'Butterfly', w:20, h:16, p:[['e',.26,.33,.2,.27,1],['e',.74,.33,.2,.27,1],['e',.29,.72,.16,.21,1],['e',.71,.72,.16,.21,1],['e',.5,.5,.045,.38,1]]},
   {n:'Fish', w:20, h:14, p:[['e',.45,.5,.38,.3,1],['t',.78,.5,.99,.18,.99,.82,1],['e',.27,.43,.05,.07,0]]},
-  {n:'Glasses', w:22, h:12, p:[['e',.27,.5,.23,.44,1],['e',.27,.5,.14,.29,0],['e',.73,.5,.23,.44,1],['e',.73,.5,.14,.29,0],['e',.5,.36,.06,.08,1],['e',.025,.36,.03,.14,1],['e',.975,.36,.03,.14,1]]},
+  {n:'Glasses', w:24, h:15, p:[['e',.27,.5,.24,.46,1],['e',.27,.5,.12,.24,0],['e',.73,.5,.24,.46,1],['e',.73,.5,.12,.24,0],['e',.5,.36,.07,.1,1],['e',.025,.36,.03,.16,1],['e',.975,.36,.03,.16,1]]},
   {n:'Rabbit', w:18, h:20, p:[['e',.5,.72,.27,.25,1],['e',.5,.4,.19,.17,1],['e',.4,.14,.06,.16,1],['e',.6,.14,.06,.16,1],['e',.44,.38,.035,.04,0],['e',.56,.38,.035,.04,0]]},
   {n:'Fan', w:20, h:20, p:[['e',.5,.2,.11,.2,1],['e',.5,.8,.11,.2,1],['e',.2,.5,.2,.11,1],['e',.8,.5,.2,.11,1],['e',.5,.5,.12,.12,1],['e',.5,.5,.04,.04,0]]},
   {n:'Turtle', w:20, h:18, p:[['e',.5,.52,.31,.26,1],['e',.88,.5,.1,.1,1],['e',.28,.82,.08,.09,1],['e',.72,.82,.08,.09,1],['e',.28,.22,.08,.09,1],['e',.72,.22,.08,.09,1],['t',.2,.5,.04,.42,.04,.58,1]]},
@@ -294,9 +299,14 @@ const SHAPES = [
   {n:'Bird', w:20, h:18, p:[['e',.5,.58,.3,.24,1],['e',.76,.34,.14,.14,1],['t',.88,.31,1,.37,.88,.43,1],['t',.24,.52,.02,.3,.02,.66,1],['e',.8,.31,.035,.035,0]]},
   {n:'Star', w:22, h:22, p:[['p',STAR,1]]},
   {n:'Umbrella', w:20, h:20, p:[['e',.5,.45,.46,.4,1],['p',[[0,.45],[1,.45],[1,1],[0,1]],0],['p',[[.47,.44],[.53,.44],[.53,.85],[.47,.85]],1],['e',.42,.86,.07,.06,1],['e',.42,.86,.03,.025,0]]},
-  {n:'Moon', w:18, h:18, p:[['e',.5,.5,.44,.44,1],['e',.68,.46,.34,.36,0]]},
+  {n:'Moon', w:18, h:18, p:[['e',.5,.5,.46,.46,1],['e',.72,.46,.3,.32,0]]},
   {n:'Tree', w:18, h:20, p:[['e',.5,.36,.34,.32,1],['p',[[.44,.6],[.56,.6],[.58,.95],[.42,.95]],1]]},
-  {n:'Flower', w:20, h:20, p:[['e',.5,.18,.13,.17,1],['e',.5,.82,.13,.17,1],['e',.18,.5,.17,.13,1],['e',.82,.5,.17,.13,1],['e',.28,.28,.13,.13,1],['e',.72,.28,.13,.13,1],['e',.28,.72,.13,.13,1],['e',.72,.72,.13,.13,1],['e',.5,.5,.15,.15,1]]}
+  {n:'Flower', w:20, h:20, p:[['e',.5,.18,.13,.17,1],['e',.5,.82,.13,.17,1],['e',.18,.5,.17,.13,1],['e',.82,.5,.17,.13,1],['e',.28,.28,.13,.13,1],['e',.72,.28,.13,.13,1],['e',.28,.72,.13,.13,1],['e',.72,.72,.13,.13,1],['e',.5,.5,.15,.15,1]]},
+  {n:'House', w:20, h:20, p:[['p',[[.5,.06],[.96,.48],[.04,.48]],1],['p',[[.14,.46],[.86,.46],[.86,.95],[.14,.95]],1],['p',[[.68,.12],[.8,.12],[.8,.3],[.68,.3]],1],['p',[[.42,.66],[.58,.66],[.58,.95],[.42,.95]],0],['p',[[.2,.56],[.34,.56],[.34,.7],[.2,.7]],0],['p',[[.66,.56],[.8,.56],[.8,.7],[.66,.7]],0]]},
+  {n:'Rocket', w:16, h:22, p:[['e',.5,.45,.22,.36,1],['t',.3,.62,.04,.9,.32,.82,1],['t',.7,.62,.96,.9,.68,.82,1],['t',.38,.8,.62,.8,.5,.99,1],['e',.5,.34,.09,.07,0]]},
+  {n:'Crown', w:22, h:16, p:[['p',[[.05,.88],[.05,.22],[.27,.5],[.5,.1],[.73,.5],[.95,.22],[.95,.88]],1],['e',.5,.7,.05,.08,0]]},
+  {n:'Apple', w:18, h:20, p:[['e',.36,.6,.3,.3,1],['e',.64,.6,.3,.3,1],['e',.5,.64,.32,.28,1],['p',[[.47,.2],[.53,.2],[.55,.36],[.45,.36]],1],['e',.66,.2,.12,.07,1]]},
+  {n:'Mushroom', w:20, h:20, p:[['e',.5,.4,.46,.34,1],['p',[[0,.5],[1,.5],[1,1],[0,1]],0],['p',[[.36,.48],[.64,.48],[.68,.95],[.32,.95]],1],['e',.3,.35,.07,.07,0],['e',.55,.24,.08,.08,0],['e',.74,.38,.06,.06,0]]}
 ];
 function ptIn(poly, u, v){
   let c = false;
@@ -370,7 +380,7 @@ function buildFixed(W, H, target){
 }
 
 /* --- ghana maze: poora bharo, phir "peel" se raaste tay karo (hamesha solvable) --- */
-function buildDense(W, H, mask, minL, maxL, chain){
+function buildDense(W, H, mask, minL, maxL, chain, target){
   const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
   const used = Array.from({length:H}, () => Array(W).fill(false));
   const okm = (x,y) => inb(x,y) && !used[y][x] && (!mask || mask[y][x]);
@@ -393,6 +403,31 @@ function buildDense(W, H, mask, minL, maxL, chain){
       p.push(n[0]); used[n[0][1]][n[0][0]] = true;
     }
     if(p.length >= 2) pieces.push(p);
+  }
+  if(target){                                          // arrows ki tadaad bilkul tay shuda karo
+    let g2 = 0;
+    while(pieces.length > target && g2++ < 600){       // zyada hon to sab se chhote do saath lagay arrows jodo
+      let bi = -1, bj = -1, ba = 0, bb = 0, bl = 1e9;
+      for(let i = 0; i < pieces.length; i++) for(let j = 0; j < pieces.length; j++){
+        if(i === j) continue;
+        const A = pieces[i], B = pieces[j], tl = A.length + B.length;
+        if(tl >= bl) continue;
+        for(const a of [0,1]) for(const b of [0,1]){
+          const ea = a ? A[0] : A[A.length-1], eb = b ? B[0] : B[B.length-1];
+          if(Math.abs(ea[0] - eb[0]) + Math.abs(ea[1] - eb[1]) === 1){ bl = tl; bi = i; bj = j; ba = a; bb = b; }
+        }
+      }
+      if(bi < 0) break;
+      const A = pieces[bi], B = pieces[bj];
+      pieces[bi] = (ba ? A.slice().reverse() : A).concat(bb ? B : B.slice().reverse());
+      pieces.splice(bj, 1);
+    }
+    while(pieces.length < target){                     // kam hon to sab se lambe ko todo
+      let bi = 0; pieces.forEach((p, i) => { if(p.length > pieces[bi].length) bi = i; });
+      const p = pieces[bi]; if(p.length < 4) break;
+      const cut = 2 + (Math.random() * (p.length - 3) | 0);
+      pieces.splice(bi, 1, p.slice(0, cut), p.slice(cut));
+    }
   }
   const occ = Array.from({length:H}, () => Array(W).fill(-1));
   const alive = new Map(); let nid = 0;
@@ -421,7 +456,8 @@ function buildDense(W, H, mask, minL, maxL, chain){
       }
     }
     if(!cands.length){                               // atak gaye: ek arrow ko tod do
-      const ids = [...alive.keys()], id = ids[Math.random() * ids.length | 0], p = alive.get(id);
+      const longs = [...alive.keys()].filter(k => alive.get(k).length >= 4);
+      const ids = longs.length ? longs : [...alive.keys()], id = ids[Math.random() * ids.length | 0], p = alive.get(id);
       alive.delete(id); p.forEach(([x,y]) => occ[y][x] = -1);
       if(p.length < 4) continue;
       const cut = 2 + (Math.random() * (p.length - 3) | 0);
@@ -479,6 +515,9 @@ function bestOf(n, make, target, wFree){
   return best;
 }
 
+// level 6 ke baad har level mein arrows ki tadaad badhti hai (kabhi kam nahi hoti)
+const arrowsFor = level => Math.min(64, Math.round(20 + 2.2 * (level - 5)));
+
 function gen(level){
   const tier = tierOf(level);
   let g;
@@ -487,20 +526,71 @@ function gen(level){
     g = bestOf(60, () => buildFixed(W, W, FIXED[level-1]), FIXED[level-1]);
   } else {
     const chain = Math.min(1, (level - 5) / 3);       // level 6 se zanjeer shuru, level 8 tak poori
+    const n = arrowsFor(level);
     if(level >= 11 && (level - 11) % 3 === 0){        // level 10 ke baad har 3rd level: shakal
-      const idx = (level - 11) / 3, sh = SHAPES[idx % SHAPES.length], f = 1 + Math.min(idx, 8) * .025;
-      const W = Math.round(sh.w * f), H = Math.round(sh.h * f);
-      g = bestOf(16, () => buildDense(W, H, shapeMask(sh, W, H), 3, Math.min(6 + (idx >> 1), 8), chain), 0, 1.2);
+      const idx = (level - 11) / 3, sh = SHAPES[idx % SHAPES.length];
+      const base = shapeMask(sh, sh.w, sh.h); let cells = 0; base.forEach(r => r.forEach(v => { if(v) cells++; }));
+      const f = Math.min(26 / Math.max(sh.w, sh.h), Math.max(1, Math.sqrt(n * 3.3 / cells)));
+      const W = Math.round(sh.w * f), H = Math.round(sh.h * f), mask = shapeMask(sh, W, H);
+      g = bestOf(60, () => buildDense(W, H, mask, 2, 5, chain, n), n, 2.5);
       g.name = sh.n;
     } else {
-      const k = level - 6;
-      const W = Math.min(10 + k, 18), H = Math.min(14 + Math.floor(k * 1.3), 26);
-      g = bestOf(16, () => buildDense(W, H, null, Math.min(3 + (k >> 2), 5), Math.min(6 + (k >> 1), 10), chain));
+      const maxL = Math.min(6 + ((level - 6) >> 2), 10);                    // arrow chhote: 2 se maxL khane (sirf sir wala nahi)
+      const cells = n * ((2 + maxL) / 2 + .8);
+      const H = Math.min(27, Math.max(12, Math.round(Math.sqrt(cells / .74))));
+      const W = Math.min(20, Math.max(9, Math.round(cells / H)));
+      g = bestOf(40, () => buildDense(W, H, null, 2, maxL, chain, n), n);
     }
   }
   g.tier = tier;
   return g;
 }
+
+/* --- home ke upar left mein chhota avatar --- */
+const AVATARS = ['💧','🐱','🐶','🦊','🐼','🐸','🦋','🐢','🐰','🐯','🦁','🐵'];
+const avBtn = document.createElement('button');
+avBtn.id = 'avatarBtn'; avBtn.className = 'avatar';
+document.querySelector('#home .top').prepend(avBtn);
+function renderAvatar(){
+  const a = st.avatar || 'e:💧';
+  avBtn.innerHTML = '';
+  if(a.startsWith('i:')){ const im = document.createElement('img'); im.src = a.slice(2); avBtn.appendChild(im); }
+  else avBtn.textContent = a.slice(2);
+}
+const photoInput = document.createElement('input');
+photoInput.type = 'file'; photoInput.accept = 'image/*'; photoInput.style.display = 'none';
+document.body.appendChild(photoInput);
+photoInput.onchange = () => {                       // photo ko chhota (96x96) karke save karo
+  const f = photoInput.files && photoInput.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = 96;
+      const s = Math.min(im.width, im.height);
+      c.getContext('2d').drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 96, 96);
+      st.avatar = 'i:' + c.toDataURL('image/jpeg', .8); save(); renderAvatar(); closeModal();
+    };
+    im.src = rd.result;
+  };
+  rd.readAsDataURL(f); photoInput.value = '';
+};
+avBtn.onclick = () => {
+  modal('Apna avatar chuno', [['Band karo', 'b']]);
+  const box = $('#mb'), grid = document.createElement('div');
+  grid.className = 'avgrid';
+  AVATARS.forEach(e => {
+    const b = document.createElement('button');
+    b.className = 'avopt'; b.textContent = e;
+    b.onclick = () => { st.avatar = 'e:' + e; save(); renderAvatar(); closeModal(); };
+    grid.appendChild(b);
+  });
+  const ph = document.createElement('button');
+  ph.className = 'mb a'; ph.textContent = '📷 Apni photo lagao';
+  ph.onclick = () => photoInput.click();
+  box.prepend(ph); box.prepend(grid);
+};
+renderAvatar();
 
 // TEST KE LIYE: link ke aakhir mein ?level=8 likho to seedha wahi level khulega
 // (Play Store par bhejne se pehle ye line delete kar dena)
