@@ -89,3 +89,11 @@ canvas{touch-action:manipulation}
 .avgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .avopt{background:#fff;border-radius:16px;font-size:34px;padding:10px 0;box-shadow:0 1px 4px #0002}
 
+
+/* eagle eye */
+#eagle{position:fixed;left:50%;top:34%;transform:translate(-50%,-50%) scale(.3);display:flex;align-items:center;gap:12px;background:#fff;border-radius:30px;padding:14px 24px;box-shadow:0 8px 30px #0005;opacity:0;pointer-events:none;z-index:40;font-size:28px;color:var(--ac)}
+#eagle .ee{font-size:46px}
+#eagle.on{animation:eagle 1.6s ease forwards}
+@keyframes eagle{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) scale(1)}}
+
+
