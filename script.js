@@ -35,13 +35,20 @@ function beep(f, d, v, type){
   o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + d);
 }
 const vib = ms => { if(st.vib && navigator.vibrate) navigator.vibrate(ms); };
-function click(){                                   // asli "tik" jaisa chhota click
-  if(!st.sound) return;
-  const a = AC(), n = Math.floor(a.sampleRate * .03), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0);
-  for(let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4);
-  const src = a.createBufferSource(), g = a.createGain(), f = a.createBiquadFilter();
-  f.type = 'bandpass'; f.frequency.value = 1800; g.gain.value = .6;
-  src.buffer = b; src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+function click(){                                   // asli "tik" jaisa chhota click + Eagle Eye ka hisaab
+  if(st.sound){
+    const a = AC(), n = Math.floor(a.sampleRate * .03), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0);
+    for(let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4);
+    const src = a.createBufferSource(), g = a.createGain(), f = a.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 1800; g.gain.value = .6;
+    src.buffer = b; src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+  }
+  const now = Date.now(), gap = now - lastOk; lastOk = now;
+  if(gap >= 8000 && st.level >= 6){                   // 8 second se zyada soch kar sahi arrow mila
+    eagleEl.classList.remove('on'); void eagleEl.offsetWidth; eagleEl.classList.add('on');
+    setTimeout(chime, 150);
+    setTimeout(() => eagleEl.classList.remove('on'), 1700);
+  }
 }
 const tick = () => { click(); vib(15); };
 const bad  = () => { beep(220, .1, .12); vib(60); };   // halki "dhup", bhaari awaaz nahi
@@ -194,10 +201,12 @@ function draw(){
   const lw = Math.max(2, cs * Math.max(.05, .11 - G.tier * .007));
   G.sn.forEach((sn, i) => {
     if(sn.state === 3) return;
-    const col = sn.state === 2 ? '#d62828' : i === hintId ? accent : ln;
+    const col = sn.state === 2 ? '#d62828' : i === hintId ? accent : (G.mask && sn.inside) ? accent : ln;
+    ctx.globalAlpha = (G.mask && !sn.inside && sn.state === 0 && i !== hintId) ? .45 : 1;
     drawSnake(sn, col, i === hintId ? lw * 1.5 : lw);
+    ctx.globalAlpha = 1;
   });
-  // janwar ki shakal peeche halke rang se
+  // shakal peeche halke rang se
   if(G.mask){
     ctx.save();
     ctx.globalCompositeOperation = 'destination-over';
@@ -269,20 +278,20 @@ function win(){
   setTimeout(() => modal('Level complete! 🎉', [['Next Level', 'a', startLevel], ['Home', 'b', () => show('home')]]), 350);
 }
 
-/* ---------- Welcome (sirf pehli baar) ---------- */
+/* ---------- Welcome (sirf pehli baar) + Privacy / Terms links ---------- */
 const SITE = 'https://junejoibraheem377-cloud.github.io/droplet-arrows/';
 const TERMS_URL = SITE + 'terms.html';
 const PRIVACY_URL = SITE + 'privacy.html';
-const openLink = (url, name) => window.open(url, '_blank');
+const openLink = url => window.open(url, '_blank');
 document.querySelectorAll('#settings .row').forEach(r => {     // Settings ke Privacy / Terms
   if(r.textContent.includes('Privacy')) r.onclick = () => openLink(PRIVACY_URL);
   if(r.textContent.includes('Terms')) r.onclick = () => openLink(TERMS_URL);
 });
-$('#terms').onclick = () => openLink(TERMS_URL, 'Terms');
-$('#privacy').onclick = () => openLink(PRIVACY_URL, 'Privacy Policy');
+$('#terms').onclick = () => openLink(TERMS_URL);
+$('#privacy').onclick = () => openLink(PRIVACY_URL);
 $('#accept').onclick = () => { st.accepted = 1; save(); show('home'); };
 
-/* ===== NAYA LEVEL SYSTEM (v2) ===== */
+/* ===== LEVEL SYSTEM ===== */
 const FIXED = [4, 8, 12, 16, 20];            // level 1-5 mein arrows ki tadaad
 // janwar / cheezon ki shakal: ['e',cx,cy,rx,ry,jodo(1)/hatao(0)], ['t',x1,y1,x2,y2,x3,y3,jodo/hatao], ['p',[[x,y],...],jodo/hatao]
 const STAR = Array.from({length:10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? .24 : .48; return [+(.5 + r * Math.cos(a)).toFixed(3), +(.54 + r * Math.sin(a)).toFixed(3)]; });
@@ -333,7 +342,7 @@ function finish(W, H, sn, occ, mask, name, tier){
   return {W, H, sn, occ, mask, name, tier, alive: sn.length, total: sn.length};
 }
 
-/* --- pehle 5 levels: tay shuda tadaad --- */
+/* --- pehle 5 levels: tay shuda tadaad, aasan --- */
 function buildFixed(W, H, target){
   const occ = Array.from({length:H}, () => Array(W).fill(-1));
   const rayMark = Array.from({length:H}, () => Array(W).fill(0)), sn = [];
@@ -379,83 +388,130 @@ function buildFixed(W, H, target){
   return finish(W, H, sn, occ, null, '', 0);
 }
 
-/* --- ghana maze: poora bharo, phir "peel" se raaste tay karo (hamesha solvable) --- */
-function buildDense(W, H, mask, minL, maxL, chain, target){
+// arrows ko aapas mein aur jakra hua banao: har arrow ke raaste mein kam az kam K doosre arrows hon (jahan tak mumkin ho)
+function interlock(g, K){
+  const n = g.sn.length, occ = g.occ, W = g.W, H = g.H;
+  const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
+  const opts = g.sn.map((s, i) => [0,1].map(o => {
+    const p = o ? s.p.slice().reverse() : s.p;
+    const h = p[p.length-1], pr = p[p.length-2];
+    const d = D.findIndex(v => v[0] === h[0] - pr[0] && v[1] === h[1] - pr[1]);
+    const ray = []; const deps = new Set(); let ok = true, cx = h[0], cy = h[1];
+    for(;;){ cx += D[d][0]; cy += D[d][1]; if(!inb(cx,cy)) break; ray.push([cx,cy]); const id = occ[cy][cx]; if(id === i){ ok = false; break; } if(id > -1) deps.add(id); }
+    return {p, d, ray, deps, ok};
+  }));
+  const cur = g.sn.map(() => 0);
+  const acyclic = () => {                       // kya sab arrows nikal sakte hain?
+    const left = new Set(); for(let i = 0; i < n; i++) left.add(i);
+    let prog = true;
+    while(left.size && prog){ prog = false;
+      for(const i of [...left]){ let free = true; for(const j of opts[i][cur[i]].deps) if(left.has(j)){ free = false; break; } if(free){ left.delete(i); prog = true; } } }
+    return left.size === 0;
+  };
+  for(let pass = 0; pass < 4; pass++){
+    const order = [...Array(n).keys()].sort(() => Math.random() - .5);
+    for(const i of order){
+      const a = opts[i][cur[i]], b = opts[i][1 - cur[i]];
+      if(!b.ok) continue;
+      const pa = Math.max(0, K - a.deps.size), pb = Math.max(0, K - b.deps.size);
+      if(pb < pa || (pb === pa && b.deps.size > a.deps.size && b.deps.size <= K + 2)){
+        cur[i] = 1 - cur[i];
+        if(!acyclic()) cur[i] = 1 - cur[i];
+      }
+    }
+  }
+  g.sn = g.sn.map((s, i) => {
+    const o = opts[i][cur[i]], ext = o.p.concat(o.ray), h = ext[ext.length-1];
+    let ex = h[0], ey = h[1];
+    for(let k = 0; k <= o.p.length + 1; k++){ ex += D[o.d][0]; ey += D[o.d][1]; ext.push([ex,ey]); }
+    return {p:o.p, dir:o.d, ray:o.ray, ext, s:0, state:0, t:0};
+  });
+  return g;
+}
+
+/* --- lambe, seedhe raaste wale arrows: seedha chalte raho, diwar aur doosre arrows se chipak kar --- */
+function tilePieces(W, H, mask, minL, maxL, straight){
   const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
   const used = Array.from({length:H}, () => Array(W).fill(false));
   const okm = (x,y) => inb(x,y) && !used[y][x] && (!mask || mask[y][x]);
-  const nb = (x,y) => D.map(d => [x + d[0], y + d[1]]).filter(([a,b]) => okm(a,b));
+  const nbc = (x,y) => D.filter(d => okm(x + d[0], y + d[1])).length;
   const pieces = [];
   for(;;){
     let best = null, bc = 9;
     for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
       if(!okm(x,y)) continue;
-      const c = nb(x,y).length + Math.random() * .9;
+      const c = nbc(x,y) + Math.random() * 2.4;
       if(c < bc){ bc = c; best = [x,y]; }
     }
     if(!best) break;
     const L = minL + (Math.random() * (maxL - minL + 1) | 0);
-    const p = [best]; used[best[1]][best[0]] = true;
+    const p = [best]; used[best[1]][best[0]] = true; let ld = -1;
     while(p.length < L){
-      const [x,y] = p[p.length-1], n = nb(x,y);
-      if(!n.length) break;
-      n.sort((a,b) => nb(a[0],a[1]).length - nb(b[0],b[1]).length + (Math.random() - .5) * 1.6);
-      p.push(n[0]); used[n[0][1]][n[0][0]] = true;
+      const [x,y] = p[p.length-1], cand = [];
+      for(let d = 0; d < 4; d++){
+        const nx = x + D[d][0], ny = y + D[d][1];
+        if(!okm(nx,ny)) continue;
+        let sc = nbc(nx,ny) * .8 + Math.random() * .6;
+        if(d === ld) sc -= straight;
+        cand.push([sc, d, nx, ny]);
+      }
+      if(!cand.length) break;
+      cand.sort((a,b) => a[0] - b[0]);
+      const [, d, nx, ny] = cand[0];
+      p.push([nx,ny]); used[ny][nx] = true; ld = d;
     }
     if(p.length >= 2) pieces.push(p);
   }
-  if(target){                                          // arrows ki tadaad bilkul tay shuda karo
-    let g2 = 0;
-    while(pieces.length > target && g2++ < 600){       // zyada hon to sab se chhote do saath lagay arrows jodo
-      let bi = -1, bj = -1, ba = 0, bb = 0, bl = 1e9;
-      for(let i = 0; i < pieces.length; i++) for(let j = 0; j < pieces.length; j++){
-        if(i === j) continue;
-        const A = pieces[i], B = pieces[j], tl = A.length + B.length;
-        if(tl >= bl) continue;
-        for(const a of [0,1]) for(const b of [0,1]){
-          const ea = a ? A[0] : A[A.length-1], eb = b ? B[0] : B[B.length-1];
-          if(Math.abs(ea[0] - eb[0]) + Math.abs(ea[1] - eb[1]) === 1){ bl = tl; bi = i; bj = j; ba = a; bb = b; }
-        }
+  return pieces;
+}
+function adjustPieces(pieces, target){               // arrows ki tadaad bilkul tay shuda karo
+  let g2 = 0;
+  while(pieces.length > target && g2++ < 600){       // zyada hon to aamne saamne ke do chhote arrows jodo
+    let bi = -1, bj = -1, ba = 0, bb = 0, bl = 1e9;
+    for(let i = 0; i < pieces.length; i++) for(let j = 0; j < pieces.length; j++){
+      if(i === j) continue;
+      const A = pieces[i], B = pieces[j], tl = A.length + B.length;
+      if(tl >= bl) continue;
+      for(const a of [0,1]) for(const b of [0,1]){
+        const ea = a ? A[0] : A[A.length-1], eb = b ? B[0] : B[B.length-1];
+        if(Math.abs(ea[0] - eb[0]) + Math.abs(ea[1] - eb[1]) === 1){ bl = tl; bi = i; bj = j; ba = a; bb = b; }
       }
-      if(bi < 0) break;
-      const A = pieces[bi], B = pieces[bj];
-      pieces[bi] = (ba ? A.slice().reverse() : A).concat(bb ? B : B.slice().reverse());
-      pieces.splice(bj, 1);
     }
-    while(pieces.length < target){                     // kam hon to sab se lambe ko todo
-      let bi = 0; pieces.forEach((p, i) => { if(p.length > pieces[bi].length) bi = i; });
-      const p = pieces[bi]; if(p.length < 4) break;
-      const cut = 2 + (Math.random() * (p.length - 3) | 0);
-      pieces.splice(bi, 1, p.slice(0, cut), p.slice(cut));
-    }
+    if(bi < 0) break;
+    const A = pieces[bi], B = pieces[bj];
+    pieces[bi] = (ba ? A.slice().reverse() : A).concat(bb ? B : B.slice().reverse());
+    pieces.splice(bj, 1);
   }
+  while(pieces.length < target){                     // kam hon to sab se lambe ko todo
+    let bi = 0; pieces.forEach((p, i) => { if(p.length > pieces[bi].length) bi = i; });
+    const p = pieces[bi]; if(p.length < 4) break;
+    const cut = 2 + (Math.random() * (p.length - 3) | 0);
+    pieces.splice(bi, 1, p.slice(0, cut), p.slice(cut));
+  }
+}
+function peelBoard(W, H, mask, pieces, chain){       // raaste tay karo (hamesha hal ho sakne wala)
+  const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
   const occ = Array.from({length:H}, () => Array(W).fill(-1));
   const alive = new Map(); let nid = 0;
   const add = p => { const id = nid++; alive.set(id, p); p.forEach(([x,y]) => occ[y][x] = id); };
   pieces.forEach(add);
-  const rayOf = (x, y, d) => {
-    const r = []; let cx = x, cy = y;
-    for(;;){ cx += D[d][0]; cy += D[d][1]; if(!inb(cx,cy)) break; if(occ[cy][cx] > -1) return null; r.push([cx,cy]); }
-    return r;
-  };
-  const pidx = Array.from({length:H}, () => Array(W).fill(-1));   // kis number par arrow nikla
+  const orig = occ.map(r => r.slice()); let pure = 0;
+  const rayOf = (x, y, d) => { const r = []; let cx = x, cy = y; for(;;){ cx += D[d][0]; cy += D[d][1]; if(!inb(cx,cy)) break; if(occ[cy][cx] > -1) return null; r.push([cx,cy]); } return r; };
+  const pidx = Array.from({length:H}, () => Array(W).fill(-1));
   const out = []; let guard = 0;
   while(alive.size && guard++ < 6000){
     const cands = [];
-    for(const [id,p] of alive){
-      for(const rev of [0,1]){
-        const q = rev ? p.slice().reverse() : p;
-        const h = q[q.length-1], pr = q[q.length-2];
-        const d = D.findIndex(v => v[0] === h[0] - pr[0] && v[1] === h[1] - pr[1]);
-        const ray = rayOf(h[0], h[1], d);
-        if(ray){
-          let dep = -1, cnt = 0;                      // ye arrow kitne purane nikle arrows par tika hai
-          for(const [x,y] of ray) if(pidx[y][x] > -1){ cnt++; if(pidx[y][x] > dep) dep = pidx[y][x]; }
-          cands.push({id, q, d, ray, dep, cnt});
-        }
+    for(const [id,p] of alive) for(const rev of [0,1]){
+      const q = rev ? p.slice().reverse() : p, h = q[q.length-1], pr = q[q.length-2];
+      const d = D.findIndex(v => v[0] === h[0] - pr[0] && v[1] === h[1] - pr[1]);
+      const ray = rayOf(h[0], h[1], d);
+      if(ray){
+        let dep = -1, cnt = 0;
+        for(const [x,y] of ray) if(pidx[y][x] > -1){ cnt++; if(pidx[y][x] > dep) dep = pidx[y][x]; }
+        cands.push({id, q, d, ray, dep, cnt, pure: ray.every(([x,y]) => orig[y][x] < 0)});
       }
     }
-    if(!cands.length){                               // atak gaye: ek arrow ko tod do
+    if(!cands.length){                               // atak gaye: ek lamba arrow tod do
       const longs = [...alive.keys()].filter(k => alive.get(k).length >= 4);
       const ids = longs.length ? longs : [...alive.keys()], id = ids[Math.random() * ids.length | 0], p = alive.get(id);
       alive.delete(id); p.forEach(([x,y]) => occ[y][x] = -1);
@@ -464,24 +520,57 @@ function buildDense(W, H, mask, minL, maxL, chain, target){
       add(p.slice(0, cut)); add(p.slice(cut));
       continue;
     }
+    if(pure >= 1){ const bl = cands.filter(v => !v.pure); if(bl.length) cands.splice(0, cands.length, ...bl); }   // seedha nikalne wale arrows gine chune hon
     let c;
-    if(Math.random() < chain){                      // zanjeer: wo arrow chuno jo abhi abhi nikle arrow par tika ho
-      cands.sort((a, b) => b.dep - a.dep || b.cnt - a.cnt);
-      const top = cands.filter(v => v.dep === cands[0].dep);
-      c = top[Math.random() * top.length | 0];
-    } else c = cands[Math.random() * cands.length | 0];
+    if(Math.random() < chain){ cands.sort((a, b) => b.dep - a.dep || b.cnt - a.cnt); const top = cands.filter(v => v.dep === cands[0].dep); c = top[Math.random() * top.length | 0]; }
+    else c = cands[Math.random() * cands.length | 0];
+    if(c.pure) pure++;
     alive.get(c.id).forEach(([x,y]) => { occ[y][x] = -1; pidx[y][x] = out.length; });
     out.push(c); alive.delete(c.id);
   }
   const occ2 = Array.from({length:H}, () => Array(W).fill(-1));
   const sn = out.map((c, i) => {
     c.q.forEach(([x,y]) => occ2[y][x] = i);
-    const ext = c.q.concat(c.ray), h = ext[ext.length-1];
-    let ex = h[0], ey = h[1];
+    const ext = c.q.concat(c.ray), h = ext[ext.length-1]; let ex = h[0], ey = h[1];
     for(let k = 0; k <= c.q.length + 1; k++){ ex += D[c.d][0]; ey += D[c.d][1]; ext.push([ex,ey]); }
     return {p:c.q, dir:c.d, ray:c.ray, ext, s:0, state:0, t:0};
   });
   return finish(W, H, sn, occ2, mask, '', 0);
+}
+function makeLong(W, H, minL, maxL, chain, n, K){
+  const pieces = tilePieces(W, H, null, minL, maxL, 1.0);
+  adjustPieces(pieces, n);
+  const g = peelBoard(W, H, null, pieces, chain);
+  return K ? interlock(g, K) : g;
+}
+
+// level 6 tak aasan; level 7 se 14 tak dheere dheere cousin ki level 14 jaisi (20x27, lambe jakre arrows); phir aur zyada
+function arrowsLong(level){ return level <= 14 ? Math.round(22 + (level - 6) * 2.9) : Math.min(64, 45 + (level - 14)); }
+
+function gen(level){
+  const tier = tierOf(level);
+  let g;
+  if(level <= 5){                                      // level 1-5: aasan
+    const W = 4 + level;
+    g = bestOf(60, () => buildFixed(W, W, FIXED[level-1]), FIXED[level-1]);
+  } else {
+    const n = arrowsLong(level);
+    const easy = level <= 6;                          // level 6 bhi aasan
+    const chain = easy ? 0 : Math.min(1, (level - 6) / 2);
+    const avg = Math.min(12, 5 + (level - 6) * .85);                       // arrows ki ausat lambai badhti hai
+    const cells = n * avg;
+    const H = Math.min(27, Math.max(12, Math.round(Math.sqrt(cells / .74))));
+    const W = Math.min(20, Math.max(9, Math.round(cells / H)));
+    const minL = Math.max(3, Math.round(avg * .35)), maxL = Math.round(avg * 2.2);
+    g = easy ? makeLong(W, H, minL, maxL, 0, n, 0) : bestOf(16, () => makeLong(W, H, minL, maxL, chain, n, 4), n);
+    if(level >= 11 && (level - 11) % 3 === 0){        // har 3rd level: shakal (andar wale arrows gehre rang ke)
+      const sh = SHAPES[((level - 11) / 3) % SHAPES.length], mask = shapeMask(sh, W, H);
+      g.mask = mask; g.name = sh.n;
+      g.sn.forEach(s => { const inn = s.p.filter(([x,y]) => mask[y][x]).length; s.inside = inn * 2 >= s.p.length; });
+    }
+  }
+  g.tier = tier; lastOk = Date.now();
+  return g;
 }
 
 // har qadam par kitne arrows nikal sakte hain, uska ausat (kam = zyada sochna padega)
@@ -515,38 +604,16 @@ function bestOf(n, make, target, wFree){
   return best;
 }
 
-// level 6 ke baad har level mein arrows ki tadaad badhti hai (kabhi kam nahi hoti)
-const arrowsFor = level => Math.min(64, Math.round(20 + 2.2 * (level - 5)));
-
-function gen(level){
-  const tier = tierOf(level);
-  let g;
-  if(level <= 5){                                      // level 1-5: aasan
-    const W = 4 + level;
-    g = bestOf(60, () => buildFixed(W, W, FIXED[level-1]), FIXED[level-1]);
-  } else {
-    const chain = Math.min(1, (level - 5) / 3);       // level 6 se zanjeer shuru, level 8 tak poori
-    const n = arrowsFor(level);
-    if(level >= 11 && (level - 11) % 3 === 0){        // level 10 ke baad har 3rd level: shakal
-      const idx = (level - 11) / 3, sh = SHAPES[idx % SHAPES.length];
-      const base = shapeMask(sh, sh.w, sh.h); let cells = 0; base.forEach(r => r.forEach(v => { if(v) cells++; }));
-      const f = Math.min(26 / Math.max(sh.w, sh.h), Math.max(1, Math.sqrt(n * 3.3 / cells)));
-      const W = Math.round(sh.w * f), H = Math.round(sh.h * f), mask = shapeMask(sh, W, H);
-      g = bestOf(60, () => buildDense(W, H, mask, 2, 5, chain, n), n, 2.5);
-      g.name = sh.n;
-    } else {
-      const maxL = Math.min(6 + ((level - 6) >> 2), 10);                    // arrow chhote: 2 se maxL khane (sirf sir wala nahi)
-      const cells = n * ((2 + maxL) / 2 + .8);
-      const H = Math.min(27, Math.max(12, Math.round(Math.sqrt(cells / .74))));
-      const W = Math.min(20, Math.max(9, Math.round(cells / H)));
-      g = bestOf(40, () => buildDense(W, H, null, 2, maxL, chain, n), n);
-    }
-  }
-  g.tier = tier;
-  return g;
+/* ---------- Eagle Eye: der tak soch kar sahi arrow dhoondo to awaaz + 🦅👍 ---------- */
+let lastOk = Date.now();
+const eagleEl = document.createElement('div');
+eagleEl.id = 'eagle'; eagleEl.innerHTML = '<span class="ee">🦅</span><b>Eagle Eye!</b><span class="ee">👍</span>';
+document.body.appendChild(eagleEl);
+function chime(){                                     // khushi ki 3 awaazein
+  beep(784, .14, .14); setTimeout(() => beep(988, .14, .14), 120); setTimeout(() => beep(1319, .3, .16), 240);
 }
 
-/* --- home ke upar left mein chhota avatar --- */
+/* ---------- home ke upar left mein chhota avatar ---------- */
 const AVATARS = ['💧','🐱','🐶','🦊','🐼','🐸','🦋','🐢','🐰','🐯','🦁','🐵'];
 const avBtn = document.createElement('button');
 avBtn.id = 'avatarBtn'; avBtn.className = 'avatar';
@@ -600,228 +667,3 @@ renderAvatar();
 applyTheme();
 setTimeout(() => show('loading'), 2000);
 setTimeout(() => show(st.accepted ? 'home' : 'welcome'), 4200);
-
-/* ===== JAKRE HUE ARROWS + RANG WALI SHAKAL (sab se neeche paste karo) ===== */
-// arrows ko aapas mein aur jakra hua banao: har arrow ke raaste mein kam az kam K doosre arrows hon (jahan tak mumkin ho)
-function interlock(g, K){
-  const n = g.sn.length, occ = g.occ, W = g.W, H = g.H;
-  const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
-  const opts = g.sn.map((s, i) => [0,1].map(o => {
-    const p = o ? s.p.slice().reverse() : s.p;
-    const h = p[p.length-1], pr = p[p.length-2];
-    const d = D.findIndex(v => v[0] === h[0] - pr[0] && v[1] === h[1] - pr[1]);
-    const ray = []; const deps = new Set(); let ok = true, cx = h[0], cy = h[1];
-    for(;;){ cx += D[d][0]; cy += D[d][1]; if(!inb(cx,cy)) break; ray.push([cx,cy]); const id = occ[cy][cx]; if(id === i){ ok = false; break; } if(id > -1) deps.add(id); }
-    return {p, d, ray, deps, ok};
-  }));
-  const cur = g.sn.map(() => 0);
-  const acyclic = () => {                       // kya sab arrows nikal sakte hain?
-    const left = new Set(); for(let i = 0; i < n; i++) left.add(i);
-    let prog = true;
-    while(left.size && prog){ prog = false;
-      for(const i of [...left]){ let free = true; for(const j of opts[i][cur[i]].deps) if(left.has(j)){ free = false; break; } if(free){ left.delete(i); prog = true; } } }
-    return left.size === 0;
-  };
-  for(let pass = 0; pass < 4; pass++){
-    const order = [...Array(n).keys()].sort(() => Math.random() - .5);
-    for(const i of order){
-      const a = opts[i][cur[i]], b = opts[i][1 - cur[i]];
-      if(!b.ok) continue;
-      const pa = Math.max(0, K - a.deps.size), pb = Math.max(0, K - b.deps.size);
-      if(pb < pa || (pb === pa && b.deps.size > a.deps.size && b.deps.size <= K + 2)){
-        cur[i] = 1 - cur[i];
-        if(!acyclic()) cur[i] = 1 - cur[i];
-      }
-    }
-  }
-  g.sn = g.sn.map((s, i) => {
-    const o = opts[i][cur[i]], ext = o.p.concat(o.ray), h = ext[ext.length-1];
-    let ex = h[0], ey = h[1];
-    for(let k = 0; k <= o.p.length + 1; k++){ ex += D[o.d][0]; ey += D[o.d][1]; ext.push([ex,ey]); }
-    return {p:o.p, dir:o.d, ray:o.ray, ext, s:0, state:0, t:0};
-  });
-  return g;
-}
-
-function buildDense(W, H, mask, minL, maxL, chain, target, pureMax){
-  const inb = (x,y) => x >= 0 && y >= 0 && x < W && y < H;
-  const used = Array.from({length:H}, () => Array(W).fill(false));
-  const okm = (x,y) => inb(x,y) && !used[y][x] && (!mask || mask[y][x]);
-  const nb = (x,y) => D.map(d => [x + d[0], y + d[1]]).filter(([a,b]) => okm(a,b));
-  const pieces = [];
-  for(;;){
-    let best = null, bc = 9;
-    for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
-      if(!okm(x,y)) continue;
-      const c = nb(x,y).length + Math.random() * .9;
-      if(c < bc){ bc = c; best = [x,y]; }
-    }
-    if(!best) break;
-    const L = minL + (Math.random() * (maxL - minL + 1) | 0);
-    const p = [best]; used[best[1]][best[0]] = true;
-    while(p.length < L){
-      const [x,y] = p[p.length-1], n = nb(x,y);
-      if(!n.length) break;
-      n.sort((a,b) => nb(a[0],a[1]).length - nb(b[0],b[1]).length + (Math.random() - .5) * 1.6);
-      p.push(n[0]); used[n[0][1]][n[0][0]] = true;
-    }
-    if(p.length >= 2) pieces.push(p);
-  }
-  if(target){                                          // arrows ki tadaad bilkul tay shuda karo
-    let g2 = 0;
-    while(pieces.length > target && g2++ < 600){       // zyada hon to sab se chhote do saath lagay arrows jodo
-      let bi = -1, bj = -1, ba = 0, bb = 0, bl = 1e9;
-      for(let i = 0; i < pieces.length; i++) for(let j = 0; j < pieces.length; j++){
-        if(i === j) continue;
-        const A = pieces[i], B = pieces[j], tl = A.length + B.length;
-        if(tl >= bl) continue;
-        for(const a of [0,1]) for(const b of [0,1]){
-          const ea = a ? A[0] : A[A.length-1], eb = b ? B[0] : B[B.length-1];
-          if(Math.abs(ea[0] - eb[0]) + Math.abs(ea[1] - eb[1]) === 1){ bl = tl; bi = i; bj = j; ba = a; bb = b; }
-        }
-      }
-      if(bi < 0) break;
-      const A = pieces[bi], B = pieces[bj];
-      pieces[bi] = (ba ? A.slice().reverse() : A).concat(bb ? B : B.slice().reverse());
-      pieces.splice(bj, 1);
-    }
-    while(pieces.length < target){                     // kam hon to sab se lambe ko todo
-      let bi = 0; pieces.forEach((p, i) => { if(p.length > pieces[bi].length) bi = i; });
-      const p = pieces[bi]; if(p.length < 4) break;
-      const cut = 2 + (Math.random() * (p.length - 3) | 0);
-      pieces.splice(bi, 1, p.slice(0, cut), p.slice(cut));
-    }
-  }
-  const occ = Array.from({length:H}, () => Array(W).fill(-1));
-  const alive = new Map(); let nid = 0;
-  const add = p => { const id = nid++; alive.set(id, p); p.forEach(([x,y]) => occ[y][x] = id); };
-  pieces.forEach(add);
-  const orig = occ.map(r => r.slice());               // shuru mein kahan kahan arrow tha
-  let pure = 0;                                        // kitne arrows ka raasta shuru se hi bilkul khali hai
-  const rayOf = (x, y, d) => {
-    const r = []; let cx = x, cy = y;
-    for(;;){ cx += D[d][0]; cy += D[d][1]; if(!inb(cx,cy)) break; if(occ[cy][cx] > -1) return null; r.push([cx,cy]); }
-    return r;
-  };
-  const pidx = Array.from({length:H}, () => Array(W).fill(-1));   // kis number par arrow nikla
-  const out = []; let guard = 0;
-  while(alive.size && guard++ < 6000){
-    const cands = [];
-    for(const [id,p] of alive){
-      for(const rev of [0,1]){
-        const q = rev ? p.slice().reverse() : p;
-        const h = q[q.length-1], pr = q[q.length-2];
-        const d = D.findIndex(v => v[0] === h[0] - pr[0] && v[1] === h[1] - pr[1]);
-        const ray = rayOf(h[0], h[1], d);
-        if(ray){
-          let dep = -1, cnt = 0;                      // ye arrow kitne purane nikle arrows par tika hai
-          for(const [x,y] of ray) if(pidx[y][x] > -1){ cnt++; if(pidx[y][x] > dep) dep = pidx[y][x]; }
-          cands.push({id, q, d, ray, dep, cnt, pure: ray.every(([x,y]) => orig[y][x] < 0)});
-        }
-      }
-    }
-    if(!cands.length){                               // atak gaye: ek arrow ko tod do
-      const longs = [...alive.keys()].filter(k => alive.get(k).length >= 4);
-      const ids = longs.length ? longs : [...alive.keys()], id = ids[Math.random() * ids.length | 0], p = alive.get(id);
-      alive.delete(id); p.forEach(([x,y]) => occ[y][x] = -1);
-      if(p.length < 4) continue;
-      const cut = 2 + (Math.random() * (p.length - 3) | 0);
-      add(p.slice(0, cut)); add(p.slice(cut));
-      continue;
-    }
-    if(pureMax && pure >= pureMax){                  // bahar seedha nikalne wale arrows gine chune hon
-      const blocked = cands.filter(v => !v.pure);
-      if(blocked.length) cands.splice(0, cands.length, ...blocked);
-    }
-    let c;
-    if(Math.random() < chain){                      // zanjeer: wo arrow chuno jo abhi abhi nikle arrow par tika ho
-      cands.sort((a, b) => b.dep - a.dep || b.cnt - a.cnt);
-      const top = cands.filter(v => v.dep === cands[0].dep);
-      c = top[Math.random() * top.length | 0];
-    } else c = cands[Math.random() * cands.length | 0];
-    if(c.pure) pure++;
-    alive.get(c.id).forEach(([x,y]) => { occ[y][x] = -1; pidx[y][x] = out.length; });
-    out.push(c); alive.delete(c.id);
-  }
-  const occ2 = Array.from({length:H}, () => Array(W).fill(-1));
-  const sn = out.map((c, i) => {
-    c.q.forEach(([x,y]) => occ2[y][x] = i);
-    const ext = c.q.concat(c.ray), h = ext[ext.length-1];
-    let ex = h[0], ey = h[1];
-    for(let k = 0; k <= c.q.length + 1; k++){ ex += D[c.d][0]; ey += D[c.d][1]; ext.push([ex,ey]); }
-    return {p:c.q, dir:c.d, ray:c.ray, ext, s:0, state:0, t:0};
-  });
-  return finish(W, H, sn, occ2, mask, '', 0);
-}
-
-// ek board banao, arrows ko aapas mein jakro (kam az kam K arrows har arrow ke raaste mein)
-function makeBoard(W, H, minL, maxL, chain, n){
-  const g = buildDense(W, H, null, minL, maxL, chain, n, 1);
-  return interlock(g, 4);
-}
-
-function gen(level){
-  const tier = tierOf(level);
-  let g;
-  if(level <= 5){                                      // level 1-5: aasan
-    const W = 4 + level;
-    g = bestOf(60, () => buildFixed(W, W, FIXED[level-1]), FIXED[level-1]);
-  } else {
-    const chain = Math.min(1, (level - 5) / 3);       // level 6 se zanjeer shuru, level 8 tak poori
-    const n = Math.min(64, Math.round(20 + 2.2 * (level - 5)));   // har level mein arrows badhte hain
-    const isShape = level >= 11 && (level - 11) % 3 === 0;     // level 10 ke baad har 3rd level: shakal
-    const sh = isShape ? SHAPES[((level - 11) / 3) % SHAPES.length] : null;
-    const maxL = Math.min(6 + ((level - 6) >> 2), 10);                    // arrow chhote: 2 se maxL khane (sirf sir wala nahi)
-    const cells = n * ((2 + maxL) / 2 + .8);
-    let W, H;
-    if(isShape){                                      // shakal ke andaaz ka dabba
-      const asp = sh.w / sh.h;
-      W = Math.min(24, Math.max(10, Math.round(Math.sqrt(cells * asp)))); H = Math.min(27, Math.max(10, Math.round(cells / W)));
-    } else {
-      H = Math.min(27, Math.max(12, Math.round(Math.sqrt(cells / .74))));
-      W = Math.min(20, Math.max(9, Math.round(cells / H)));
-    }
-    g = bestOf(isShape ? 24 : 16, () => makeBoard(W, H, 2, maxL, chain, n), n);
-    if(isShape){                                      // shakal ke andar wale arrows gehre rang ke
-      const mask = shapeMask(sh, W, H);
-      g.mask = mask; g.name = sh.n;
-      g.sn.forEach(s => { const inn = s.p.filter(([x,y]) => mask[y][x]).length; s.inside = inn * 2 >= s.p.length; });
-    }
-  }
-  g.tier = tier;
-  return g;
-}
-
-function draw(){
-  if(!G) return;
-  ctx.clearRect(0, 0, cv.width, cv.height);
-  const css = getComputedStyle(document.documentElement);
-  const ln = css.getPropertyValue('--ln').trim(), accent = css.getPropertyValue('--ac').trim();
-  if(st.guide){
-    ctx.fillStyle = ln + '44';
-    for(let y = 0; y < G.H; y++) for(let x = 0; x < G.W; x++){
-      ctx.beginPath(); ctx.arc((x+.5)*cs, (y+.5)*cs, cs*.05, 0, 7); ctx.fill();
-    }
-  }
-  // lakeer ki motai: har 3 level par thodi patli hoti jati hai
-  const lw = Math.max(2, cs * Math.max(.05, .11 - G.tier * .007));
-  G.sn.forEach((sn, i) => {
-    if(sn.state === 3) return;
-    const col = sn.state === 2 ? '#d62828' : i === hintId ? accent : (G.mask && sn.inside) ? accent : ln;
-    ctx.globalAlpha = (G.mask && !sn.inside && sn.state === 0 && i !== hintId) ? .45 : 1;
-    drawSnake(sn, col, i === hintId ? lw * 1.5 : lw);
-    ctx.globalAlpha = 1;
-  });
-  // janwar ki shakal peeche halke rang se
-  if(G.mask){
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-over';
-    ctx.globalAlpha = .18; ctx.fillStyle = accent;
-    for(let y = 0; y < G.H; y++) for(let x = 0; x < G.W; x++){
-      if(G.mask[y][x]) ctx.fillRect(x * cs, y * cs, cs + .5, cs + .5);
-    }
-    ctx.restore();
-  }
-}
-
-
